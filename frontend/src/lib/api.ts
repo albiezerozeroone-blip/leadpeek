@@ -261,6 +261,50 @@ export const getStatsOverview = (province?: string) =>
 export const getStatsSectors = (province?: string, topN = 25) =>
   apiFetch<StatsSector[]>(`/api/stats/sectors?top_n=${topN}${province ? `&province=${province}` : ""}`);
 
+export interface MarginBucket {
+  margin_bucket: number;
+  n: number;
+}
+
+export interface SizeBucket {
+  size_bucket: string;
+  sort_key: number;
+  companies: number;
+  revenue_m: number;
+}
+
+export interface EvolutionYear {
+  fiscal_year: number;
+  companies: number;
+  revenue_m: number;
+  ebitda_m: number;
+  ebit_m: number;
+  net_profit_m: number;
+  nfd_m: number;
+}
+
+export interface ProvinceStats {
+  province: string;
+  companies: number;
+  revenue_m: number;
+  ebitda_m: number;
+  med_margin: number | null;
+  total_fte: number;
+  med_fte: number | null;
+}
+
+export const getStatsMarginDistribution = (province?: string) =>
+  apiFetch<MarginBucket[]>(`/api/stats/margin-distribution${province ? `?province=${province}` : ""}`);
+
+export const getStatsSizeDistribution = (province?: string) =>
+  apiFetch<SizeBucket[]>(`/api/stats/size-distribution${province ? `?province=${province}` : ""}`);
+
+export const getStatsEvolution = (yMin = 2021, yMax = 2024, province?: string) =>
+  apiFetch<EvolutionYear[]>(`/api/stats/evolution?y_min=${yMin}&y_max=${yMax}${province ? `&province=${province}` : ""}`);
+
+export const getStatsProvinces = () =>
+  apiFetch<ProvinceStats[]>(`/api/stats/provinces`);
+
 // ── People ─────────────────────────────────────────────────
 export interface PersonResult {
   name: string;

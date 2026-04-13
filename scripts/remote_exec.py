@@ -11,11 +11,18 @@ USER = os.getenv("HETZNER_USER", "root")
 PASS = os.getenv("HETZNER_PASS", "")
 
 
+SSH_KEY = os.path.expanduser("~/.ssh/hetzner_leadpeek")
+
+
 def run(cmd, timeout=120):
     """Execute a command on the remote server and print output."""
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(HOST, username=USER, password=PASS, timeout=10)
+    # Try SSH key first, fall back to password
+    try:
+        ssh.connect(HOST, username=USER, key_filename=SSH_KEY, timeout=10)
+    except Exception:
+        ssh.connect(HOST, username=USER, password=PASS, timeout=10)
     print(f">>> {cmd[:80]}{'...' if len(cmd) > 80 else ''}")
     stdin, stdout, stderr = ssh.exec_command(cmd, timeout=timeout)
     out = stdout.read().decode()
