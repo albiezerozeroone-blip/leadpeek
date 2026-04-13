@@ -1,19 +1,10 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableHeader,
-  TableHead,
-  TableBody,
-  TableRow,
-  TableCell,
-} from "@/components/ui/table";
 import {
   Select,
   SelectTrigger,
@@ -29,18 +20,15 @@ import {
   Search,
   RotateCcw,
   Loader2,
-  Filter,
   Tag,
   MapPin,
-  CircleDollarSign,
-  TrendingUp,
-  Users,
-  Percent,
-  ArrowUpDown,
-  List,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 
-/* ---------- types ---------- */
+/* ------------------------------------------------------------------ */
+/*  Types                                                              */
+/* ------------------------------------------------------------------ */
 
 interface ScreenerRow {
   cbe: string;
@@ -84,7 +72,7 @@ const DEFAULT_FILTERS: Filters = {
   fte_min: "",
   fte_max: "",
   margin_min: "",
-  sort: "ebit_desc",
+  sort: "revenue_desc",
   limit: "100",
 };
 
@@ -104,17 +92,53 @@ const PROVINCES = [
 
 type FinancialUnit = "raw" | "K" | "M";
 
-const SORT_OPTIONS = [
-  { value: "revenue_desc", label: "Revenue high-low" },
-  { value: "ebit_desc", label: "EBIT high-low" },
-  { value: "ebitda_desc", label: "EBITDA high-low" },
-  { value: "fte_desc", label: "FTE high-low" },
-  { value: "name_asc", label: "Name A-Z" },
-];
+type SortKey =
+  | "revenue_desc"
+  | "ebit_desc"
+  | "ebitda_desc"
+  | "fte_desc"
+  | "name_asc";
 
 const LIMIT_OPTIONS = ["50", "100", "250", "500"];
 
-/* ---------- CSV helper ---------- */
+interface QuickFilter {
+  label: string;
+  apply: (f: Filters) => Partial<Filters>;
+  isActive: (f: Filters) => boolean;
+}
+
+const QUICK_FILTERS: QuickFilter[] = [
+  {
+    label: "Rev > \u20ac1M",
+    apply: (f) => (f.rev_min === "1" ? { rev_min: "" } : { rev_min: "1" }),
+    isActive: (f) => f.rev_min === "1",
+  },
+  {
+    label: "Rev > \u20ac10M",
+    apply: (f) => (f.rev_min === "10" ? { rev_min: "" } : { rev_min: "10" }),
+    isActive: (f) => f.rev_min === "10",
+  },
+  {
+    label: "EBIT > 0",
+    apply: (f) => (f.ebit_min === "0" ? { ebit_min: "" } : { ebit_min: "0" }),
+    isActive: (f) => f.ebit_min === "0",
+  },
+  {
+    label: "FTE > 50",
+    apply: (f) => (f.fte_min === "50" ? { fte_min: "" } : { fte_min: "50" }),
+    isActive: (f) => f.fte_min === "50",
+  },
+  {
+    label: "Margin > 15%",
+    apply: (f) =>
+      f.margin_min === "15" ? { margin_min: "" } : { margin_min: "15" },
+    isActive: (f) => f.margin_min === "15",
+  },
+];
+
+/* ------------------------------------------------------------------ */
+/*  Helpers                                                            */
+/* ------------------------------------------------------------------ */
 
 function exportCsv(rows: ScreenerRow[]) {
   const headers = [
@@ -149,10 +173,9 @@ function exportCsv(rows: ScreenerRow[]) {
       r.fte ?? "",
     ].join(",")
   );
-  const blob = new Blob(
-    [headers.join(",") + "\n" + csvRows.join("\n")],
-    { type: "text/csv" }
-  );
+  const blob = new Blob([headers.join(",") + "\n" + csvRows.join("\n")], {
+    type: "text/csv",
+  });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -161,38 +184,134 @@ function exportCsv(rows: ScreenerRow[]) {
   URL.revokeObjectURL(url);
 }
 
-/* ---------- skeleton rows ---------- */
+function marginColor(v: number | null | undefined): string {
+  if (v == null) return "text-slate-400";
+  if (v >= 15) return "text-emerald-600";
+  if (v >= 5) return "text-slate-700";
+  if (v >= 0) return "text-amber-600";
+  return "text-red-600";
+}
+
+/* ------------------------------------------------------------------ */
+/*  Compact skeleton                                                   */
+/* ------------------------------------------------------------------ */
 
 function SkeletonRows({ count }: { count: number }) {
   return (
     <>
       {Array.from({ length: count }).map((_, i) => (
-        <TableRow key={i}>
-          {Array.from({ length: 13 }).map((_, j) => (
-            <TableCell key={j}>
-              <div className="h-4 w-full animate-pulse rounded bg-slate-200" />
-            </TableCell>
-          ))}
-        </TableRow>
+        <tr key={i} className="border-b border-slate-100">
+          <td className="py-2 px-3" colSpan={7}>
+            <div className="h-3 w-3/4 animate-pulse rounded bg-slate-200 mb-1" />
+            <div className="h-2.5 w-1/2 animate-pulse rounded bg-slate-100" />
+          </td>
+        </tr>
       ))}
     </>
   );
 }
 
-/* ---------- main component ---------- */
+/* ------------------------------------------------------------------ */
+/*  Sortable column header                                             */
+/* ------------------------------------------------------------------ */
+
+function SortHeader({
+  label,
+  sortKey,
+  currentSort,
+  onSort,
+  align = "right",
+}: {
+  label: string;
+  sortKey: SortKey;
+  currentSort: string;
+  onSort: (k: SortKey) => void;
+  align?: "left" | "right";
+}) {
+  const isActive = currentSort === sortKey;
+  return (
+    <th
+      className={`py-1.5 px-2 text-[11px] font-semibold uppercase tracking-wider cursor-pointer select-none whitespace-nowrap transition-colors hover:text-indigo-600 ${
+        align === "right" ? "text-right" : "text-left"
+      } ${isActive ? "text-indigo-700" : "text-slate-500"}`}
+      onClick={() => onSort(sortKey)}
+    >
+      <span className="inline-flex items-center gap-0.5">
+        {label}
+        {isActive ? (
+          <ChevronDown className="w-3 h-3" />
+        ) : (
+          <ChevronUp className="w-3 h-3 opacity-0 group-hover:opacity-30" />
+        )}
+      </span>
+    </th>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Hover card                                                         */
+/* ------------------------------------------------------------------ */
+
+function HoverCard({ row }: { row: ScreenerRow }) {
+  return (
+    <div className="absolute z-50 left-0 top-full mt-1 w-72 rounded-lg border border-slate-200 bg-white p-3 shadow-lg pointer-events-none">
+      <div className="text-xs font-semibold text-slate-800 mb-2 truncate">
+        {row.name}
+      </div>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
+        <span className="text-slate-400">CBE</span>
+        <span className="font-mono text-slate-600">{fmtCbe(row.cbe)}</span>
+        <span className="text-slate-400">Legal Form</span>
+        <span className="text-slate-600">{row.jf_label ?? "\u2014"}</span>
+        <span className="text-slate-400">Founded</span>
+        <span className="text-slate-600">
+          {row.start_date ? row.start_date.slice(0, 4) : "\u2014"}
+        </span>
+        <span className="text-slate-400">NACE</span>
+        <span className="text-slate-600 truncate">{row.nace || "\u2014"}</span>
+        <span className="text-slate-400">Revenue</span>
+        <span className="font-mono text-slate-700">{fmtEur(row.revenue)}</span>
+        <span className="text-slate-400">EBIT</span>
+        <span className="font-mono text-slate-700">{fmtEur(row.ebit)}</span>
+        <span className="text-slate-400">EBITDA</span>
+        <span className="font-mono text-slate-700">{fmtEur(row.ebitda)}</span>
+        <span className="text-slate-400">Margin</span>
+        <span className={`font-mono ${marginColor(row.margin_pct)}`}>
+          {fmtPct(row.margin_pct)}
+        </span>
+        <span className="text-slate-400">Net Profit</span>
+        <span className="font-mono text-slate-700">
+          {fmtEur(row.net_profit)}
+        </span>
+        <span className="text-slate-400">FTE</span>
+        <span className="font-mono text-slate-700">{fmtNumber(row.fte)}</span>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Main component                                                     */
+/* ------------------------------------------------------------------ */
 
 export default function ScreenerPage() {
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [results, setResults] = useState<ScreenerRow[]>([]);
   const [loading, setLoading] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
-  const [unit, setUnit] = useState<FinancialUnit>("raw");
+  const [fetchMs, setFetchMs] = useState<number | null>(null);
+  const [unit, setUnit] = useState<FinancialUnit>("M");
+  const [hoveredCbe, setHoveredCbe] = useState<string | null>(null);
+  const [nameSearch, setNameSearch] = useState("");
 
-  /* NACE autocomplete state */
+  /* NACE autocomplete */
   const [naceSuggestions, setNaceSuggestions] = useState<NaceSuggestion[]>([]);
   const [naceOpen, setNaceOpen] = useState(false);
   const naceDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const naceContainerRef = useRef<HTMLDivElement>(null);
+
+  /* Debounced fetch ref */
+  const fetchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountFetchedRef = useRef(false);
 
   const fetchNaceSuggestions = useCallback((q: string) => {
     if (naceDebounceRef.current) clearTimeout(naceDebounceRef.current);
@@ -207,13 +326,16 @@ export default function ScreenerPage() {
       } catch {
         setNaceSuggestions([]);
       }
-    }, 300);
+    }, 200);
   }, []);
 
-  /* Close NACE dropdown when clicking outside */
+  /* Close NACE dropdown on outside click */
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (naceContainerRef.current && !naceContainerRef.current.contains(e.target as Node)) {
+      if (
+        naceContainerRef.current &&
+        !naceContainerRef.current.contains(e.target as Node)
+      ) {
         setNaceOpen(false);
       }
     }
@@ -221,503 +343,583 @@ export default function ScreenerPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  /* ---- Core fetch ---- */
+  const doFetch = useCallback(
+    async (f: Filters) => {
+      setLoading(true);
+      const t0 = performance.now();
+      try {
+        const multiplier = unit === "M" ? 1_000_000 : unit === "K" ? 1_000 : 1;
+        const params: Record<string, string> = {};
+        if (f.nace) params.nace = f.nace;
+        if (f.zipcode) params.zipcode = f.zipcode;
+        if (f.rev_min)
+          params.rev_min = String(Number(f.rev_min) * multiplier);
+        if (f.rev_max)
+          params.rev_max = String(Number(f.rev_max) * multiplier);
+        if (f.ebit_min)
+          params.ebit_min = String(
+            Number(f.ebit_min) * (f.ebit_min === "0" ? 1 : multiplier)
+          );
+        if (f.ebit_max)
+          params.ebit_max = String(Number(f.ebit_max) * multiplier);
+        if (f.fte_min) params.fte_min = f.fte_min;
+        if (f.fte_max) params.fte_max = f.fte_max;
+        if (f.margin_min) params.margin_min = f.margin_min;
+        params.sort = f.sort;
+        params.limit = f.limit;
+
+        const data = await getScreener(params);
+        setResults(data);
+        setFetchMs(Math.round(performance.now() - t0));
+      } catch (err) {
+        console.error("Screener fetch failed:", err);
+        setResults([]);
+        setFetchMs(null);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [unit]
+  );
+
+  /* Debounced auto-fetch on filter changes */
+  const scheduleFetch = useCallback(
+    (f: Filters) => {
+      if (fetchDebounceRef.current) clearTimeout(fetchDebounceRef.current);
+      fetchDebounceRef.current = setTimeout(() => doFetch(f), 400);
+    },
+    [doFetch]
+  );
+
   const updateFilter = useCallback(
     (key: keyof Filters, value: string) => {
-      setFilters((prev) => ({ ...prev, [key]: value }));
+      setFilters((prev) => {
+        const next = { ...prev, [key]: value };
+        scheduleFetch(next);
+        return next;
+      });
     },
-    []
+    [scheduleFetch]
   );
 
   const resetFilters = useCallback(() => {
     setFilters(DEFAULT_FILTERS);
-    setResults([]);
-    setHasSearched(false);
-    setUnit("raw");
+    setUnit("M");
+    setNameSearch("");
     setNaceSuggestions([]);
     setNaceOpen(false);
-  }, []);
+    doFetch(DEFAULT_FILTERS);
+  }, [doFetch]);
 
-  const applyFilters = useCallback(async () => {
-    setLoading(true);
-    setHasSearched(true);
-    try {
-      const multiplier = unit === "M" ? 1_000_000 : unit === "K" ? 1_000 : 1;
-      const params: Record<string, string> = {};
-      if (filters.nace) params.nace = filters.nace;
-      if (filters.zipcode) params.zipcode = filters.zipcode;
-      if (filters.rev_min) params.rev_min = String(Number(filters.rev_min) * multiplier);
-      if (filters.rev_max) params.rev_max = String(Number(filters.rev_max) * multiplier);
-      if (filters.ebit_min) params.ebit_min = String(Number(filters.ebit_min) * multiplier);
-      if (filters.ebit_max) params.ebit_max = String(Number(filters.ebit_max) * multiplier);
-      if (filters.fte_min) params.fte_min = filters.fte_min;
-      if (filters.fte_max) params.fte_max = filters.fte_max;
-      if (filters.margin_min) params.margin_min = filters.margin_min;
-      params.sort = filters.sort;
-      params.limit = filters.limit;
-
-      const data = await getScreener(params);
-      setResults(data);
-    } catch (err) {
-      console.error("Screener fetch failed:", err);
-      setResults([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [filters, unit]);
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Enter") applyFilters();
+  const toggleQuickFilter = useCallback(
+    (qf: QuickFilter) => {
+      setFilters((prev) => {
+        const patch = qf.apply(prev);
+        const next = { ...prev, ...patch };
+        scheduleFetch(next);
+        return next;
+      });
     },
-    [applyFilters]
+    [scheduleFetch]
   );
 
-  // Auto-load on mount
+  const handleSort = useCallback(
+    (key: SortKey) => {
+      setFilters((prev) => {
+        const next = { ...prev, sort: key };
+        scheduleFetch(next);
+        return next;
+      });
+    },
+    [scheduleFetch]
+  );
+
+  /* Re-fetch when unit changes (doFetch captures latest unit) */
+  const unitPrevRef = useRef(unit);
   useEffect(() => {
-    applyFilters();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (!mountFetchedRef.current) {
+      mountFetchedRef.current = true;
+      doFetch(DEFAULT_FILTERS);
+    } else if (unitPrevRef.current !== unit) {
+      doFetch(filters);
+    }
+    unitPrevRef.current = unit;
+  }, [doFetch, unit, filters]);
+
+  /* Client-side name filter (instant, no API call) */
+  const filteredResults = useMemo(() => {
+    if (!nameSearch.trim()) return results;
+    const q = nameSearch.toLowerCase();
+    return results.filter(
+      (r) =>
+        (r.name && r.name.toLowerCase().includes(q)) ||
+        r.cbe.includes(q.replace(/\./g, ""))
+    );
+  }, [results, nameSearch]);
+
+  /* Active filter count for badge */
+  const activeFilterCount = useMemo(() => {
+    let c = 0;
+    if (filters.nace) c++;
+    if (filters.zipcode || filters.province) c++;
+    if (filters.rev_min || filters.rev_max) c++;
+    if (filters.ebit_min || filters.ebit_max) c++;
+    if (filters.fte_min || filters.fte_max) c++;
+    if (filters.margin_min) c++;
+    return c;
+  }, [filters]);
 
   return (
-    <div className="mx-auto w-full max-w-[1400px] px-4 py-6">
-      {/* Page header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">
-          <Search className="w-5 h-5 inline mr-2" />
-          Company Screener
-        </h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Filter and browse Belgian companies by financial metrics
-        </p>
-      </div>
-
-      <div className="flex gap-6">
-        {/* Left sidebar — filters */}
-        <div className="w-80 shrink-0" onKeyDown={handleKeyDown}>
-          <div className="space-y-4">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              <Filter className="w-3.5 h-3.5 inline mr-1.5" />
+    <div className="flex h-[calc(100vh-64px)] overflow-hidden">
+      {/* ================= LEFT SIDEBAR ================= */}
+      <aside className="w-60 shrink-0 border-r border-slate-200 bg-slate-50/70 overflow-y-auto">
+        <div className="p-3 space-y-3">
+          {/* Sidebar header */}
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
               Filters
-            </h2>
-
-            {/* Action buttons — top */}
-            <div className="flex gap-2">
-              <Button
-                onClick={applyFilters}
-                disabled={loading}
-                className="flex-1 bg-indigo-600 text-white hover:bg-indigo-700"
+            </span>
+            {activeFilterCount > 0 && (
+              <Badge
+                variant="secondary"
+                className="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0"
               >
-                {loading ? (
-                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                ) : (
-                  <Search className="mr-1.5 h-4 w-4" />
-                )}
-                Apply Filters
-              </Button>
-              <Button variant="outline" onClick={resetFilters}>
-                <RotateCcw className="mr-1.5 h-4 w-4" />
-                Reset
-              </Button>
-            </div>
+                {activeFilterCount}
+              </Badge>
+            )}
+          </div>
 
-            {/* --- Identification --- */}
-            <div className="border-t border-slate-200 pt-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="nace" className="text-xs text-slate-500">
-                    <Tag className="w-3.5 h-3.5 inline mr-1" />
-                    NACE sector
-                  </Label>
-                  <div className="relative" ref={naceContainerRef}>
-                    <Input
-                      id="nace"
-                      placeholder="Type code or sector name..."
-                      value={filters.nace}
-                      onChange={(e) => {
-                        updateFilter("nace", e.target.value);
-                        fetchNaceSuggestions(e.target.value);
-                      }}
-                      onFocus={() => setNaceOpen(true)}
-                    />
-                    {naceOpen && naceSuggestions.length > 0 && (
-                      <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
-                        {naceSuggestions.map((s) => (
-                          <button
-                            key={s.nace_code}
-                            className="w-full text-left px-3 py-2 text-sm hover:bg-indigo-50 border-b border-slate-100 last:border-0"
-                            onClick={() => {
-                              updateFilter("nace", s.nace_code);
-                              setNaceOpen(false);
-                            }}
-                          >
-                            <span className="font-mono text-indigo-600">{s.nace_code}</span>
-                            <span className="text-slate-500 ml-2">{s.description}</span>
-                            {s.company_count && (
-                              <span className="text-slate-400 ml-1 text-xs">({s.company_count})</span>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
+          {/* Reset */}
+          <button
+            onClick={resetFilters}
+            className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            <RotateCcw className="w-3 h-3" />
+            Reset all
+          </button>
 
-                <div className="space-y-1.5">
-                  <Label htmlFor="zipcode" className="text-xs text-slate-500">
-                    <MapPin className="w-3.5 h-3.5 inline mr-1" />
-                    Zipcode
-                  </Label>
-                  <Input
-                    id="zipcode"
-                    placeholder="2000, 9..."
-                    value={filters.zipcode}
-                    onChange={(e) => updateFilter("zipcode", e.target.value)}
-                  />
-                </div>
-              </div>
-              <p className="mt-1 text-[11px] text-slate-400">
-                NACE code or prefix (e.g. 28, 461, 6920)
-              </p>
-
-              {/* Province */}
-              <div className="mt-3 space-y-1.5">
-                <Label className="text-xs text-slate-500">
-                  <MapPin className="w-3.5 h-3.5 inline mr-1" />
-                  Province
-                </Label>
-                <Select
-                  value={filters.province}
-                  onValueChange={(v) => {
-                    if (v === "all") {
-                      setFilters((prev) => ({ ...prev, province: "", zipcode: "" }));
-                      return;
-                    }
-                    const prov = PROVINCES.find((p) => p.label === v);
-                    setFilters((prev) => ({
-                      ...prev,
-                      province: v ?? "",
-                      zipcode: prov ? prov.prefix : prev.zipcode,
-                    }));
-                  }}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="All provinces" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All provinces</SelectItem>
-                    {PROVINCES.map((p) => (
-                      <SelectItem key={p.label} value={p.label}>
-                        {p.label} ({p.prefix})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* --- K/M unit toggle --- */}
-            <div className="border-t border-slate-200 pt-3">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs text-slate-500">Financial unit</span>
-                <div className="flex rounded-md border border-slate-200 overflow-hidden">
-                  {(["raw", "K", "M"] as FinancialUnit[]).map((u) => (
+          {/* NACE */}
+          <div className="space-y-1" ref={naceContainerRef}>
+            <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
+              <Tag className="w-3 h-3 inline mr-1" />
+              NACE sector
+            </Label>
+            <div className="relative">
+              <Input
+                className="h-7 text-xs"
+                placeholder="Code or name..."
+                value={filters.nace}
+                onChange={(e) => {
+                  updateFilter("nace", e.target.value);
+                  fetchNaceSuggestions(e.target.value);
+                }}
+                onFocus={() => setNaceOpen(true)}
+              />
+              {naceOpen && naceSuggestions.length > 0 && (
+                <div className="absolute z-50 top-full left-0 right-0 mt-0.5 bg-white border border-slate-200 rounded shadow-lg max-h-44 overflow-y-auto">
+                  {naceSuggestions.map((s) => (
                     <button
-                      key={u}
-                      onClick={() => setUnit(u)}
-                      className={`px-2.5 py-0.5 text-xs font-medium transition-colors ${
-                        unit === u
-                          ? "bg-indigo-600 text-white"
-                          : "bg-white text-slate-500 hover:bg-slate-50"
-                      }`}
+                      key={s.nace_code}
+                      className="w-full text-left px-2 py-1.5 text-[11px] hover:bg-indigo-50 border-b border-slate-50 last:border-0"
+                      onClick={() => {
+                        updateFilter("nace", s.nace_code);
+                        setNaceOpen(false);
+                      }}
                     >
-                      {u === "raw" ? "1" : u}
+                      <span className="font-mono text-indigo-600">
+                        {s.nace_code}
+                      </span>
+                      <span className="text-slate-500 ml-1.5 truncate">
+                        {s.description}
+                      </span>
+                      {s.company_count != null && (
+                        <span className="text-slate-300 ml-1">
+                          ({s.company_count})
+                        </span>
+                      )}
                     </button>
                   ))}
                 </div>
-              </div>
+              )}
             </div>
+          </div>
 
-            {/* --- Revenue --- */}
-            <div className="border-t border-slate-200 pt-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs text-slate-500">
-                  <CircleDollarSign className="w-3.5 h-3.5 inline mr-1" />
-                  Revenue
-                </Label>
-                {unit !== "raw" && (
-                  <span className="text-[10px] text-indigo-500 font-medium">
-                    x {unit === "K" ? "1,000" : "1,000,000"}
-                  </span>
-                )}
-              </div>
-              <div className="mt-1.5 grid grid-cols-2 gap-3">
-                <Input
-                  type="number"
-                  placeholder={`Min${unit !== "raw" ? ` (${unit})` : ""}`}
-                  value={filters.rev_min}
-                  onChange={(e) => updateFilter("rev_min", e.target.value)}
-                />
-                <Input
-                  type="number"
-                  placeholder={`Max${unit !== "raw" ? ` (${unit})` : ""}`}
-                  value={filters.rev_max}
-                  onChange={(e) => updateFilter("rev_max", e.target.value)}
-                />
-              </div>
-            </div>
+          {/* Province */}
+          <div className="space-y-1">
+            <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
+              <MapPin className="w-3 h-3 inline mr-1" />
+              Province
+            </Label>
+            <Select
+              value={filters.province || "all"}
+              onValueChange={(v) => {
+                if (v === "all") {
+                  setFilters((prev) => {
+                    const next = { ...prev, province: "", zipcode: "" };
+                    scheduleFetch(next);
+                    return next;
+                  });
+                  return;
+                }
+                const prov = PROVINCES.find((p) => p.label === v);
+                setFilters((prev) => {
+                  const next = {
+                    ...prev,
+                    province: v ?? "",
+                    zipcode: prov ? prov.prefix : prev.zipcode,
+                  };
+                  scheduleFetch(next);
+                  return next;
+                });
+              }}
+            >
+              <SelectTrigger className="h-7 text-xs w-full">
+                <SelectValue placeholder="All" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All provinces</SelectItem>
+                {PROVINCES.map((p) => (
+                  <SelectItem key={p.label} value={p.label}>
+                    {p.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-            {/* --- EBIT --- */}
-            <div className="border-t border-slate-200 pt-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs text-slate-500">
-                  <TrendingUp className="w-3.5 h-3.5 inline mr-1" />
-                  EBIT
-                </Label>
-                {unit !== "raw" && (
-                  <span className="text-[10px] text-indigo-500 font-medium">
-                    x {unit === "K" ? "1,000" : "1,000,000"}
-                  </span>
-                )}
-              </div>
-              <div className="mt-1.5 grid grid-cols-2 gap-3">
-                <Input
-                  type="number"
-                  placeholder={`Min${unit !== "raw" ? ` (${unit})` : ""}`}
-                  value={filters.ebit_min}
-                  onChange={(e) => updateFilter("ebit_min", e.target.value)}
-                />
-                <Input
-                  type="number"
-                  placeholder={`Max${unit !== "raw" ? ` (${unit})` : ""}`}
-                  value={filters.ebit_max}
-                  onChange={(e) => updateFilter("ebit_max", e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* --- FTE --- */}
-            <div className="border-t border-slate-200 pt-3">
-              <Label className="text-xs text-slate-500">
-                <Users className="w-3.5 h-3.5 inline mr-1" />
-                FTE
-              </Label>
-              <div className="mt-1.5 grid grid-cols-2 gap-3">
-                <Input
-                  type="number"
-                  placeholder="Min"
-                  value={filters.fte_min}
-                  onChange={(e) => updateFilter("fte_min", e.target.value)}
-                />
-                <Input
-                  type="number"
-                  placeholder="Max"
-                  value={filters.fte_max}
-                  onChange={(e) => updateFilter("fte_max", e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* --- Margin --- */}
-            <div className="border-t border-slate-200 pt-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs text-slate-500">
-                  <Percent className="w-3.5 h-3.5 inline mr-1" />
-                  EBITDA margin min %
-                </Label>
-                <Input
-                  type="number"
-                  placeholder="0"
-                  value={filters.margin_min}
-                  onChange={(e) => updateFilter("margin_min", e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* --- Sort & Limit --- */}
-            <div className="border-t border-slate-200 pt-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-slate-500">
-                    <ArrowUpDown className="w-3.5 h-3.5 inline mr-1" />
-                    Sort by
-                  </Label>
-                  <Select
-                    value={filters.sort}
-                    onValueChange={(v) => updateFilter("sort", v ?? "")}
+          {/* Unit toggle */}
+          <div className="pt-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
+                Unit
+              </span>
+              <div className="flex rounded border border-slate-200 overflow-hidden">
+                {(["raw", "K", "M"] as FinancialUnit[]).map((u) => (
+                  <button
+                    key={u}
+                    onClick={() => setUnit(u)}
+                    className={`px-2 py-0.5 text-[10px] font-semibold transition-colors ${
+                      unit === u
+                        ? "bg-indigo-600 text-white"
+                        : "bg-white text-slate-400 hover:bg-slate-50"
+                    }`}
                   >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SORT_OPTIONS.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-slate-500">
-                    <List className="w-3.5 h-3.5 inline mr-1" />
-                    Limit
-                  </Label>
-                  <Select
-                    value={filters.limit}
-                    onValueChange={(v) => updateFilter("limit", v ?? "")}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {LIMIT_OPTIONS.map((opt) => (
-                        <SelectItem key={opt} value={opt}>
-                          {opt}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                    {u === "raw" ? "\u20ac" : u}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
+
+          {/* Revenue */}
+          <div className="space-y-1 border-t border-slate-200 pt-2">
+            <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
+              Revenue{unit !== "raw" ? ` (${unit})` : ""}
+            </Label>
+            <div className="grid grid-cols-2 gap-1.5">
+              <Input
+                className="h-7 text-xs font-mono"
+                type="number"
+                placeholder="Min"
+                value={filters.rev_min}
+                onChange={(e) => updateFilter("rev_min", e.target.value)}
+              />
+              <Input
+                className="h-7 text-xs font-mono"
+                type="number"
+                placeholder="Max"
+                value={filters.rev_max}
+                onChange={(e) => updateFilter("rev_max", e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* EBIT */}
+          <div className="space-y-1 border-t border-slate-200 pt-2">
+            <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
+              EBIT{unit !== "raw" ? ` (${unit})` : ""}
+            </Label>
+            <div className="grid grid-cols-2 gap-1.5">
+              <Input
+                className="h-7 text-xs font-mono"
+                type="number"
+                placeholder="Min"
+                value={filters.ebit_min}
+                onChange={(e) => updateFilter("ebit_min", e.target.value)}
+              />
+              <Input
+                className="h-7 text-xs font-mono"
+                type="number"
+                placeholder="Max"
+                value={filters.ebit_max}
+                onChange={(e) => updateFilter("ebit_max", e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* FTE */}
+          <div className="space-y-1 border-t border-slate-200 pt-2">
+            <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
+              FTE
+            </Label>
+            <div className="grid grid-cols-2 gap-1.5">
+              <Input
+                className="h-7 text-xs font-mono"
+                type="number"
+                placeholder="Min"
+                value={filters.fte_min}
+                onChange={(e) => updateFilter("fte_min", e.target.value)}
+              />
+              <Input
+                className="h-7 text-xs font-mono"
+                type="number"
+                placeholder="Max"
+                value={filters.fte_max}
+                onChange={(e) => updateFilter("fte_max", e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Margin */}
+          <div className="space-y-1 border-t border-slate-200 pt-2">
+            <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
+              Margin min %
+            </Label>
+            <Input
+              className="h-7 text-xs font-mono"
+              type="number"
+              placeholder="0"
+              value={filters.margin_min}
+              onChange={(e) => updateFilter("margin_min", e.target.value)}
+            />
+          </div>
+
+          {/* Limit */}
+          <div className="space-y-1 border-t border-slate-200 pt-2">
+            <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
+              Limit
+            </Label>
+            <Select
+              value={filters.limit}
+              onValueChange={(v) => updateFilter("limit", v ?? "100")}
+            >
+              <SelectTrigger className="h-7 text-xs w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {LIMIT_OPTIONS.map((opt) => (
+                  <SelectItem key={opt} value={opt}>
+                    {opt} rows
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
+      </aside>
 
-        {/* Right area — results */}
-        <div className="flex-1 min-w-0">
-          {loading && (
-            <div className="rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Company</TableHead>
-                    <TableHead>Legal Form</TableHead>
-                    <TableHead>Founded</TableHead>
-                    <TableHead>NACE</TableHead>
-                    <TableHead>City</TableHead>
-                    <TableHead className="text-right">Revenue</TableHead>
-                    <TableHead className="text-right">EBIT</TableHead>
-                    <TableHead className="text-right">EBITDA</TableHead>
-                    <TableHead className="text-right">Margin %</TableHead>
-                    <TableHead className="text-right">Net Profit</TableHead>
-                    <TableHead className="text-right">FTE</TableHead>
-                    <TableHead className="text-right">FY</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <SkeletonRows count={10} />
-                </TableBody>
-              </Table>
+      {/* ================= MAIN CONTENT ================= */}
+      <main className="flex-1 min-w-0 flex flex-col overflow-hidden">
+        {/* Top bar: search + quick filters + export */}
+        <div className="border-b border-slate-200 bg-white px-4 py-2 space-y-2">
+          {/* Row 1: Search + Export */}
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+              <input
+                type="text"
+                className="w-full h-8 pl-8 pr-3 text-sm border border-slate-200 rounded-md bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 placeholder:text-slate-400"
+                placeholder="Search results by name or CBE..."
+                value={nameSearch}
+                onChange={(e) => setNameSearch(e.target.value)}
+              />
             </div>
-          )}
 
-          {!loading && hasSearched && results.length === 0 && (
-            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-16">
-              <p className="text-sm font-medium text-slate-500">
-                No companies match your filters
-              </p>
-              <p className="mt-1 text-xs text-slate-400">
-                Try broadening your search criteria
-              </p>
+            {/* Result count + timing */}
+            <div className="flex items-center gap-2 text-[11px] text-slate-400 whitespace-nowrap">
+              {loading && (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-500" />
+              )}
+              {!loading && (
+                <span>
+                  <span className="font-semibold text-slate-600">
+                    {filteredResults.length.toLocaleString()}
+                  </span>{" "}
+                  companies
+                  {fetchMs != null && (
+                    <span className="text-slate-300 ml-1">in {fetchMs}ms</span>
+                  )}
+                </span>
+              )}
             </div>
-          )}
 
-          {!loading && results.length > 0 && (
-            <>
-              {/* Summary bar */}
-              <div className="mb-4 flex items-center justify-between">
-                <Badge variant="secondary" className="text-indigo-700 bg-indigo-50 border-indigo-200">
-                  {results.length.toLocaleString()} companies found
-                </Badge>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => exportCsv(results)}
+            <div className="flex-1" />
+
+            <button
+              onClick={() => exportCsv(filteredResults)}
+              disabled={filteredResults.length === 0}
+              className="flex items-center gap-1.5 h-7 px-3 text-[11px] font-medium text-slate-600 border border-slate-200 rounded-md hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              <Download className="w-3 h-3" />
+              Export
+            </button>
+          </div>
+
+          {/* Row 2: Quick filters */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-slate-400 mr-1">Quick:</span>
+            {QUICK_FILTERS.map((qf) => {
+              const active = qf.isActive(filters);
+              return (
+                <button
+                  key={qf.label}
+                  onClick={() => toggleQuickFilter(qf)}
+                  className={`h-5 px-2 text-[10px] font-medium rounded-full border transition-all ${
+                    active
+                      ? "bg-indigo-600 text-white border-indigo-600"
+                      : "bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600"
+                  }`}
                 >
-                  <Download className="mr-1.5 h-3.5 w-3.5" />
-                  Export CSV
-                </Button>
-              </div>
-
-              {/* Results table */}
-              <div className="rounded-lg border">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-slate-50">
-                      <TableHead className="min-w-[200px]">Company</TableHead>
-                      <TableHead>Legal Form</TableHead>
-                      <TableHead>Founded</TableHead>
-                      <TableHead className="min-w-[180px]">NACE</TableHead>
-                      <TableHead>City</TableHead>
-                      <TableHead className="text-right">Revenue</TableHead>
-                      <TableHead className="text-right">EBIT</TableHead>
-                      <TableHead className="text-right">EBITDA</TableHead>
-                      <TableHead className="text-right">Margin %</TableHead>
-                      <TableHead className="text-right">Net Profit</TableHead>
-                      <TableHead className="text-right">FTE</TableHead>
-                      <TableHead className="text-right">FY</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {results.map((row) => (
-                      <TableRow key={row.cbe} className="hover:bg-indigo-50/40">
-                        <TableCell className="font-medium">
-                          <Link
-                            href={`/company/${row.cbe}`}
-                            className="text-indigo-600 hover:text-indigo-800 hover:underline"
-                          >
-                            {row.name || fmtCbe(row.cbe)}
-                          </Link>
-                          <div className="text-[11px] text-slate-400 font-normal mt-0.5">
-                            {fmtCbe(row.cbe)}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-xs text-slate-600 whitespace-nowrap">
-                          {row.jf_label ?? "\u2014"}
-                        </TableCell>
-                        <TableCell className="text-xs text-slate-600">
-                          {row.start_date ? row.start_date.slice(0, 4) : "\u2014"}
-                        </TableCell>
-                        <TableCell
-                          className="max-w-[220px] truncate text-xs text-slate-600"
-                          title={row.nace}
-                        >
-                          {row.nace}
-                        </TableCell>
-                        <TableCell className="text-slate-600">
-                          {row.city ?? "\u2014"}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {fmtEur(row.revenue)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {fmtEur(row.ebit)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {fmtEur(row.ebitda)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {fmtPct(row.margin_pct)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {fmtEur(row.net_profit)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {fmtNumber(row.fte)}
-                        </TableCell>
-                        <TableCell className="text-right text-xs text-slate-500">
-                          {row.fiscal_year ?? "\u2014"}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </>
-          )}
+                  {qf.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+
+        {/* Results table */}
+        <div className="flex-1 overflow-y-auto">
+          <table className="w-full border-collapse">
+            {/* Sticky header */}
+            <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200">
+              <tr>
+                <th className="py-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500 text-left w-[280px]">
+                  Company
+                </th>
+                <SortHeader
+                  label="Revenue"
+                  sortKey="revenue_desc"
+                  currentSort={filters.sort}
+                  onSort={handleSort}
+                />
+                <SortHeader
+                  label="EBITDA"
+                  sortKey="ebitda_desc"
+                  currentSort={filters.sort}
+                  onSort={handleSort}
+                />
+                <SortHeader
+                  label="EBIT"
+                  sortKey="ebit_desc"
+                  currentSort={filters.sort}
+                  onSort={handleSort}
+                />
+                <th className="py-1.5 px-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500 text-right whitespace-nowrap">
+                  Margin
+                </th>
+                <SortHeader
+                  label="FTE"
+                  sortKey="fte_desc"
+                  currentSort={filters.sort}
+                  onSort={handleSort}
+                />
+                <th className="py-1.5 px-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500 text-right">
+                  FY
+                </th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {loading && results.length === 0 && <SkeletonRows count={15} />}
+
+              {!loading && filteredResults.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={7}
+                    className="py-20 text-center text-sm text-slate-400"
+                  >
+                    No companies match your filters
+                  </td>
+                </tr>
+              )}
+
+              {filteredResults.map((row) => (
+                <tr
+                  key={row.cbe}
+                  className="group border-b border-slate-100 hover:bg-indigo-50/30 transition-colors relative"
+                  onMouseEnter={() => setHoveredCbe(row.cbe)}
+                  onMouseLeave={() => setHoveredCbe(null)}
+                >
+                  {/* Company: 2-line cell */}
+                  <td className="py-1.5 px-3 relative">
+                    <div className="leading-tight">
+                      <Link
+                        href={`/company/${row.cbe}`}
+                        className="text-sm font-semibold text-indigo-700 hover:text-indigo-900 hover:underline decoration-indigo-300 underline-offset-2 truncate block max-w-[260px]"
+                        title={row.name}
+                      >
+                        {row.name || fmtCbe(row.cbe)}
+                      </Link>
+                      <div className="text-[10px] text-slate-400 font-mono leading-tight mt-0.5">
+                        {fmtCbe(row.cbe)}
+                        {row.city && (
+                          <span className="text-slate-300">
+                            {" "}
+                            &middot; {row.city}
+                          </span>
+                        )}
+                        {row.jf_label && (
+                          <span className="text-slate-300">
+                            {" "}
+                            &middot; {row.jf_label}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {/* Hover card */}
+                    {hoveredCbe === row.cbe && <HoverCard row={row} />}
+                  </td>
+
+                  {/* Revenue */}
+                  <td className="py-1.5 px-2 text-right font-mono text-sm text-slate-800 whitespace-nowrap">
+                    {fmtEur(row.revenue)}
+                  </td>
+
+                  {/* EBITDA */}
+                  <td className="py-1.5 px-2 text-right font-mono text-sm text-slate-700 whitespace-nowrap">
+                    {fmtEur(row.ebitda)}
+                  </td>
+
+                  {/* EBIT */}
+                  <td className="py-1.5 px-2 text-right font-mono text-sm text-slate-600 whitespace-nowrap">
+                    {fmtEur(row.ebit)}
+                  </td>
+
+                  {/* Margin (color-coded) */}
+                  <td
+                    className={`py-1.5 px-2 text-right font-mono text-sm whitespace-nowrap ${marginColor(
+                      row.margin_pct
+                    )}`}
+                  >
+                    {fmtPct(row.margin_pct)}
+                  </td>
+
+                  {/* FTE */}
+                  <td className="py-1.5 px-2 text-right font-mono text-sm text-slate-600 whitespace-nowrap">
+                    {fmtNumber(row.fte)}
+                  </td>
+
+                  {/* FY */}
+                  <td className="py-1.5 px-2 text-right text-[11px] text-slate-400 whitespace-nowrap">
+                    {row.fiscal_year ?? "\u2014"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </main>
     </div>
   );
 }
