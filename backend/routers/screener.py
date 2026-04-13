@@ -20,6 +20,19 @@ SORT_OPTIONS = {
 }
 
 
+@router.get("/nace-suggestions")
+async def nace_suggestions(q: str = Query("", min_length=1)):
+    """Return NACE codes matching the query (code or description)."""
+    rows = fetch_all("""
+        SELECT nace_code, description, company_count
+        FROM nace_lookup
+        WHERE nace_code ILIKE %s OR description ILIKE %s
+        ORDER BY company_count DESC NULLS LAST
+        LIMIT 20
+    """, (f"%{q}%", f"%{q}%"))
+    return rows
+
+
 @router.get("")
 async def screener(
     nace: Optional[str] = Query(None, description="NACE code prefix (e.g. 28, 461)"),

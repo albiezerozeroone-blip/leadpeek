@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -38,6 +39,9 @@ interface AdminStats {
   target_enterprises: number;
   target_financial_rows: number;
   target_activity_rows: number;
+  daily_active_users: number;
+  most_visited_page: string | null;
+  companies_with_staatsblad: number;
 }
 
 interface UserRow {
@@ -55,6 +59,8 @@ interface FeedbackRow {
   description: string;
   user_email: string | null;
   created_at: string;
+  reply: string | null;
+  replied_at: string | null;
 }
 
 interface ActivitySummary {
@@ -160,6 +166,8 @@ export default function AdminPanel() {
   const [pollOptions, setPollOptions] = useState("");
   const [pollCreating, setPollCreating] = useState(false);
   const [archivedExpanded, setArchivedExpanded] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<number | null>(null);
+  const [replyText, setReplyText] = useState("");
 
   const loadData = useCallback(async () => {
     try {
@@ -246,6 +254,32 @@ export default function AdminPanel() {
       await adminFetch("/api/admin/feedback", { method: "DELETE" });
       setFeedback([]);
       setConfirmClearFeedback(false);
+    } catch {
+      /* ignore */
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  /* ---- Reply actions ---- */
+
+  async function replyToFeedback(id: number) {
+    if (!replyText.trim()) return;
+    setActionLoading(`reply-${id}`);
+    try {
+      await adminFetch(`/api/admin/feedback/${id}/reply`, {
+        method: "POST",
+        body: JSON.stringify({ message: replyText.trim() }),
+      });
+      setFeedback((prev) =>
+        prev.map((f) =>
+          f.id === id
+            ? { ...f, reply: replyText.trim(), replied_at: new Date().toISOString() }
+            : f
+        )
+      );
+      setReplyingTo(null);
+      setReplyText("");
     } catch {
       /* ignore */
     } finally {
@@ -533,6 +567,60 @@ export default function AdminPanel() {
             )}
           </CardContent>
         </Card>
+
+        {/* Daily Active Users */}
+        <Card className="bg-white">
+          <CardContent className="pt-5 pb-4 text-center">
+            {loading ? (
+              <Skeleton className="h-8 w-24 mx-auto" />
+            ) : (
+              <>
+                <div className="text-2xl font-bold text-emerald-600">
+                  {fmt(stats?.daily_active_users)}
+                </div>
+                <div className="text-[11px] uppercase tracking-wide text-slate-400 mt-1">
+                  Active Today
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Most Visited Page */}
+        <Card className="bg-white">
+          <CardContent className="pt-5 pb-4 text-center">
+            {loading ? (
+              <Skeleton className="h-8 w-24 mx-auto" />
+            ) : (
+              <>
+                <div className="text-sm font-bold text-slate-900 truncate" title={stats?.most_visited_page || "--"}>
+                  {stats?.most_visited_page || "--"}
+                </div>
+                <div className="text-[11px] uppercase tracking-wide text-slate-400 mt-1">
+                  Top Page (7d)
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Companies with Staatsblad */}
+        <Card className="bg-white">
+          <CardContent className="pt-5 pb-4 text-center">
+            {loading ? (
+              <Skeleton className="h-8 w-24 mx-auto" />
+            ) : (
+              <>
+                <div className="text-2xl font-bold text-amber-600">
+                  {fmt(stats?.companies_with_staatsblad)}
+                </div>
+                <div className="text-[11px] uppercase tracking-wide text-slate-400 mt-1">
+                  With Staatsblad
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* ======== 2. Users Table ======== */}
@@ -754,6 +842,58 @@ export default function AdminPanel() {
                           {new Date(f.created_at).toLocaleDateString()}
                         </span>
                       </div>
+
+                      {/* Reply display / button */}
+                      {f.reply ? (
+                        <div className="mt-3 border-t border-slate-100 pt-3">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge className="bg-green-100 text-green-700 text-[10px]">Replied</Badge>
+                            {f.replied_at && (
+                              <span className="text-[10px] text-slate-400">
+                                {new Date(f.replied_at).toLocaleDateString()}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-600 leading-relaxed">{f.reply}</p>
+                        </div>
+                      ) : replyingTo === f.id ? (
+                        <div className="mt-3 border-t border-slate-100 pt-3 space-y-2">
+                          <Textarea
+                            placeholder="Write a reply..."
+                            value={replyText}
+                            onChange={(e) => setReplyText(e.target.value)}
+                            className="text-sm min-h-[60px]"
+                          />
+                          <div className="flex gap-2">
+                            <Button
+                              size="xs"
+                              className="bg-indigo-600 text-white hover:bg-indigo-700"
+                              disabled={!replyText.trim() || actionLoading === `reply-${f.id}`}
+                              onClick={() => replyToFeedback(f.id)}
+                            >
+                              {actionLoading === `reply-${f.id}` ? "Sending..." : "Send Reply"}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="xs"
+                              onClick={() => { setReplyingTo(null); setReplyText(""); }}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-2">
+                          <Button
+                            variant="outline"
+                            size="xs"
+                            className="border-indigo-300 text-indigo-600 hover:bg-indigo-50 text-[11px]"
+                            onClick={() => { setReplyingTo(f.id); setReplyText(""); }}
+                          >
+                            Reply
+                          </Button>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 ))}
@@ -805,6 +945,58 @@ export default function AdminPanel() {
                           {new Date(f.created_at).toLocaleDateString()}
                         </span>
                       </div>
+
+                      {/* Reply display / button */}
+                      {f.reply ? (
+                        <div className="mt-3 border-t border-slate-100 pt-3">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge className="bg-green-100 text-green-700 text-[10px]">Replied</Badge>
+                            {f.replied_at && (
+                              <span className="text-[10px] text-slate-400">
+                                {new Date(f.replied_at).toLocaleDateString()}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-600 leading-relaxed">{f.reply}</p>
+                        </div>
+                      ) : replyingTo === f.id ? (
+                        <div className="mt-3 border-t border-slate-100 pt-3 space-y-2">
+                          <Textarea
+                            placeholder="Write a reply..."
+                            value={replyText}
+                            onChange={(e) => setReplyText(e.target.value)}
+                            className="text-sm min-h-[60px]"
+                          />
+                          <div className="flex gap-2">
+                            <Button
+                              size="xs"
+                              className="bg-indigo-600 text-white hover:bg-indigo-700"
+                              disabled={!replyText.trim() || actionLoading === `reply-${f.id}`}
+                              onClick={() => replyToFeedback(f.id)}
+                            >
+                              {actionLoading === `reply-${f.id}` ? "Sending..." : "Send Reply"}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="xs"
+                              onClick={() => { setReplyingTo(null); setReplyText(""); }}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-2">
+                          <Button
+                            variant="outline"
+                            size="xs"
+                            className="border-indigo-300 text-indigo-600 hover:bg-indigo-50 text-[11px]"
+                            onClick={() => { setReplyingTo(f.id); setReplyText(""); }}
+                          >
+                            Reply
+                          </Button>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 ))}

@@ -90,6 +90,15 @@ export interface ScreenerFilters {
   limit?: number;
 }
 
+export interface NaceSuggestion {
+  nace_code: string;
+  description: string;
+  company_count: number | null;
+}
+
+export const getNaceSuggestions = (q: string) =>
+  apiFetch<NaceSuggestion[]>(`/api/screener/nace-suggestions?q=${encodeURIComponent(q)}`);
+
 export function getScreener(filters: ScreenerFilters) {
   const params = new URLSearchParams();
   for (const [k, v] of Object.entries(filters)) {

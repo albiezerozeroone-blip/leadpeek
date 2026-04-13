@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,7 +21,8 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import { getScreener } from "@/lib/api";
+import { getScreener, getNaceSuggestions } from "@/lib/api";
+import type { NaceSuggestion } from "@/lib/api";
 import { fmtEur, fmtCbe, fmtPct, fmtNumber } from "@/lib/format";
 import {
   Download,
@@ -187,6 +188,39 @@ export default function ScreenerPage() {
   const [hasSearched, setHasSearched] = useState(false);
   const [unit, setUnit] = useState<FinancialUnit>("raw");
 
+  /* NACE autocomplete state */
+  const [naceSuggestions, setNaceSuggestions] = useState<NaceSuggestion[]>([]);
+  const [naceOpen, setNaceOpen] = useState(false);
+  const naceDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const naceContainerRef = useRef<HTMLDivElement>(null);
+
+  const fetchNaceSuggestions = useCallback((q: string) => {
+    if (naceDebounceRef.current) clearTimeout(naceDebounceRef.current);
+    if (!q || q.length < 1) {
+      setNaceSuggestions([]);
+      return;
+    }
+    naceDebounceRef.current = setTimeout(async () => {
+      try {
+        const data = await getNaceSuggestions(q);
+        setNaceSuggestions(data);
+      } catch {
+        setNaceSuggestions([]);
+      }
+    }, 300);
+  }, []);
+
+  /* Close NACE dropdown when clicking outside */
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (naceContainerRef.current && !naceContainerRef.current.contains(e.target as Node)) {
+        setNaceOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const updateFilter = useCallback(
     (key: keyof Filters, value: string) => {
       setFilters((prev) => ({ ...prev, [key]: value }));
@@ -199,6 +233,8 @@ export default function ScreenerPage() {
     setResults([]);
     setHasSearched(false);
     setUnit("raw");
+    setNaceSuggestions([]);
+    setNaceOpen(false);
   }, []);
 
   const applyFilters = useCallback(async () => {
@@ -292,12 +328,38 @@ export default function ScreenerPage() {
                     <Tag className="w-3.5 h-3.5 inline mr-1" />
                     NACE sector
                   </Label>
-                  <Input
-                    id="nace"
-                    placeholder="e.g. 45"
-                    value={filters.nace}
-                    onChange={(e) => updateFilter("nace", e.target.value)}
-                  />
+                  <div className="relative" ref={naceContainerRef}>
+                    <Input
+                      id="nace"
+                      placeholder="Type code or sector name..."
+                      value={filters.nace}
+                      onChange={(e) => {
+                        updateFilter("nace", e.target.value);
+                        fetchNaceSuggestions(e.target.value);
+                      }}
+                      onFocus={() => setNaceOpen(true)}
+                    />
+                    {naceOpen && naceSuggestions.length > 0 && (
+                      <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                        {naceSuggestions.map((s) => (
+                          <button
+                            key={s.nace_code}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-indigo-50 border-b border-slate-100 last:border-0"
+                            onClick={() => {
+                              updateFilter("nace", s.nace_code);
+                              setNaceOpen(false);
+                            }}
+                          >
+                            <span className="font-mono text-indigo-600">{s.nace_code}</span>
+                            <span className="text-slate-500 ml-2">{s.description}</span>
+                            {s.company_count && (
+                              <span className="text-slate-400 ml-1 text-xs">({s.company_count})</span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="space-y-1.5">

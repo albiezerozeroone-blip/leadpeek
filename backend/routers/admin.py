@@ -11,6 +11,23 @@ from auth import get_current_user
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
+_feedback_columns_migrated = False
+
+
+def _ensure_feedback_columns():
+    """Add reply and replied_at columns to feedback table if missing (migration-style)."""
+    global _feedback_columns_migrated
+    if _feedback_columns_migrated:
+        return
+    try:
+        execute("ALTER TABLE feedback ADD COLUMN IF NOT EXISTS reply TEXT")
+        execute("ALTER TABLE feedback ADD COLUMN IF NOT EXISTS replied_at TIMESTAMP")
+        _feedback_columns_migrated = True
+        logger.info("Feedback table columns ensured (reply, replied_at)")
+    except Exception:
+        logger.debug("Feedback columns already exist or migration skipped")
+        _feedback_columns_migrated = True
+
 
 def _require_admin(user=Depends(get_current_user)):
     """Dependency: require admin role."""
@@ -33,6 +50,9 @@ def _require_admin(user=Depends(get_current_user)):
 @router.get("/stats")
 async def admin_stats(user=Depends(_require_admin)):
     """Platform stats including data loading progress."""
+    # Migrate feedback table columns if needed (adds reply + replied_at)
+    _ensure_feedback_columns()
+
     try:
         stats = fetch_one("""
             SELECT
@@ -49,7 +69,14 @@ async def admin_stats(user=Depends(_require_admin)):
                 (SELECT COUNT(*) FROM feedback WHERE type = 'bug') AS bug_count,
                 (SELECT COUNT(*) FROM feedback WHERE type = 'suggestion') AS suggestion_count,
                 (SELECT COUNT(*) FROM feedback WHERE type = 'survey') AS survey_count,
-                (SELECT pg_size_pretty(pg_database_size(current_database()))) AS db_size
+                (SELECT pg_size_pretty(pg_database_size(current_database()))) AS db_size,
+                (SELECT COUNT(DISTINCT user_email) FROM activity_log
+                 WHERE created_at > NOW() - INTERVAL '24 hours') AS daily_active_users,
+                (SELECT endpoint FROM activity_log
+                 WHERE created_at > NOW() - INTERVAL '7 days'
+                   AND endpoint != '/api/health'
+                 GROUP BY endpoint ORDER BY COUNT(*) DESC LIMIT 1) AS most_visited_page,
+                (SELECT COUNT(DISTINCT enterprise_number) FROM staatsblad_publication) AS companies_with_staatsblad
         """)
         # Add target totals for progress bars
         stats["target_enterprises"] = 1941155
@@ -86,16 +113,22 @@ async def list_feedback(user=Depends(_require_admin)):
     """List all feedback."""
     try:
         rows = fetch_all("""
-            SELECT id, type, page, description, user_email, created_at
+            SELECT id, type, page, description, user_email, created_at, reply, replied_at
             FROM feedback ORDER BY created_at DESC LIMIT 200
         """)
         for r in rows:
             if r.get("created_at"):
                 r["created_at"] = str(r["created_at"])
+            if r.get("replied_at"):
+                r["replied_at"] = str(r["replied_at"])
         return rows
     except Exception as e:
         logger.exception("List feedback failed")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+class ReplyBody(BaseModel):
+    message: str
 
 
 class RoleUpdate(BaseModel):
@@ -141,6 +174,20 @@ async def delete_feedback(feedback_id: int, user=Depends(_require_admin)):
         return {"id": feedback_id, "status": "deleted"}
     except Exception as e:
         logger.exception("Delete feedback failed")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/feedback/{feedback_id}/reply")
+async def reply_feedback(feedback_id: int, body: ReplyBody, user=Depends(_require_admin)):
+    """Store a reply to feedback (will be emailed in future)."""
+    try:
+        execute(
+            "UPDATE feedback SET reply = %s, replied_at = NOW() WHERE id = %s",
+            (body.message, feedback_id),
+        )
+        return {"status": "replied"}
+    except Exception as e:
+        logger.exception("Reply feedback failed")
         raise HTTPException(status_code=500, detail=str(e))
 
 
