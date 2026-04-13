@@ -33,6 +33,12 @@ import {
   ArrowLeft,
   ExternalLink,
 } from "lucide-react";
+import dynamic from "next/dynamic";
+
+const NetworkGraph = dynamic(() => import("@/components/network-graph"), {
+  ssr: false,
+  loading: () => <div className="py-8 text-center text-sm text-slate-400">Loading graph...</div>,
+});
 import {
   LineChart,
   Line,
@@ -516,6 +522,7 @@ export default function CompanyDetailPage(props: {
               No structure data available for this company.
             </p>
           ) : (
+            <>
             <div className="grid gap-6 lg:grid-cols-3">
               {/* Administrators */}
               {structure.administrators.length > 0 && (
@@ -670,6 +677,10 @@ export default function CompanyDetailPage(props: {
                 </Card>
               )}
             </div>
+
+              {/* Network graph */}
+              <NetworkGraph cbe={cbe} companyName={detail?.name || cbe} />
+            </>
           )}
         </TabsContent>
 
