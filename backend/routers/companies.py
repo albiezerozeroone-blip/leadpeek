@@ -215,8 +215,17 @@ async def get_company_detail(cbe: str):
 
 @router.post("/{cbe}/load")
 async def load_company_data(cbe: str):
-    """Trigger loading financial data from NBB for this company."""
+    """Load financial data from NBB for this company.
+
+    1. Fetch filing references
+    2. For each reference (most recent 5), fetch JSON-XBRL filing
+    3. Parse rubric codes and values
+    4. Insert into financial_data table
+    5. Refresh financial_latest and financial_by_year for this company
+    """
+    import time
     import uuid
+    import psycopg2.extras
 
     cbe = cbe.strip().replace(".", "").zfill(10)
 
@@ -226,21 +235,226 @@ async def load_company_data(cbe: str):
     if not nbb_key:
         raise HTTPException(status_code=503, detail="NBB API key not configured")
 
-    # Get filing references
-    headers = {
+    # --- Step 1: Fetch filing references ---
+    headers_ref = {
         "Accept": "application/json",
         "NBB-CBSO-Subscription-Key": nbb_key,
         "X-Request-Id": str(uuid.uuid4()),
     }
-    resp = http_requests.get(
-        f"{nbb_base}/authentic/legalEntity/{cbe}/references",
-        headers=headers, timeout=15,
-    )
+    try:
+        resp = http_requests.get(
+            f"{nbb_base}/authentic/legalEntity/{cbe}/references",
+            headers=headers_ref, timeout=15,
+        )
+    except Exception as e:
+        logger.error("NBB references request failed for %s: %s", cbe, e)
+        raise HTTPException(status_code=502, detail=f"NBB API connection error: {e}")
+
     if resp.status_code != 200:
-        raise HTTPException(status_code=resp.status_code, detail="NBB API error")
+        raise HTTPException(
+            status_code=resp.status_code,
+            detail=f"NBB API error fetching references: HTTP {resp.status_code}",
+        )
 
     references = resp.json()
-    return {"enterprise_number": cbe, "filings_found": len(references), "status": "queued"}
+    if not references:
+        return {
+            "enterprise_number": cbe,
+            "filings_found": 0,
+            "filings_loaded": 0,
+            "rubrics_loaded": 0,
+            "status": "no_filings",
+        }
+
+    # Limit to 5 most recent filings (references come newest-first from NBB)
+    refs_to_load = references[:5]
+
+    # --- Step 2-4: Fetch, parse, and insert each filing ---
+    conn = get_connection()
+    total_rubrics = 0
+    filings_loaded = 0
+    errors = []
+
+    try:
+        cur = conn.cursor()
+
+        for ref in refs_to_load:
+            ref_number = ref.get("ReferenceNumber", "")
+            if not ref_number:
+                continue
+
+            # Check if already loaded (skip duplicates)
+            cur.execute(
+                "SELECT 1 FROM nbb_load_log WHERE enterprise_number = %s AND deposit_key = %s",
+                (cbe, ref_number),
+            )
+            if cur.fetchone():
+                logger.info("Skipping already-loaded filing %s for %s", ref_number, cbe)
+                continue
+
+            # Respect NBB rate limits
+            time.sleep(1)
+
+            # Fetch JSON-XBRL data
+            headers_json = {
+                "Accept": "application/x.jsonxbrl",
+                "NBB-CBSO-Subscription-Key": nbb_key,
+                "X-Request-Id": str(uuid.uuid4()),
+            }
+            try:
+                filing_resp = http_requests.get(
+                    f"{nbb_base}/authentic/deposit/{ref_number}/accountingData",
+                    headers=headers_json, timeout=30,
+                )
+            except Exception as e:
+                logger.error("NBB filing request failed for ref %s: %s", ref_number, e)
+                errors.append(f"ref {ref_number}: connection error")
+                continue
+
+            if filing_resp.status_code != 200:
+                logger.warning(
+                    "NBB filing %s returned HTTP %d", ref_number, filing_resp.status_code,
+                )
+                errors.append(f"ref {ref_number}: HTTP {filing_resp.status_code}")
+                continue
+
+            filing_json = filing_resp.json()
+
+            # Extract metadata from reference
+            deposit_date = ref.get("DepositDate", "")
+            filing_model = ref.get("ModelType", "")
+            exercise = ref.get("ExerciseDates", {})
+            end_date = exercise.get("endDate", "")
+            fiscal_year = int(end_date[:4]) if end_date and len(end_date) >= 4 else None
+
+            # Parse rubrics (handle both capitalized and lowercase keys)
+            rows = []
+            for rubric in filing_json.get("Rubrics", filing_json.get("rubrics", [])):
+                code = rubric.get("Code", rubric.get("code", ""))
+                value = rubric.get("Value", rubric.get("value"))
+                period = rubric.get("Period", rubric.get("period", "N"))
+
+                if code and value is not None:
+                    rows.append((
+                        cbe, ref_number, fiscal_year, deposit_date,
+                        filing_model, code, period, float(value),
+                    ))
+
+            if rows:
+                psycopg2.extras.execute_batch(
+                    cur,
+                    """INSERT INTO financial_data
+                       (enterprise_number, deposit_key, fiscal_year, deposit_date,
+                        filing_model, rubric_code, period, value)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                       ON CONFLICT DO NOTHING""",
+                    rows,
+                )
+                # Log the load
+                cur.execute(
+                    "INSERT INTO nbb_load_log (enterprise_number, deposit_key, rubric_count) "
+                    "VALUES (%s, %s, %s) ON CONFLICT DO NOTHING",
+                    (cbe, ref_number, len(rows)),
+                )
+                conn.commit()
+                total_rubrics += len(rows)
+                filings_loaded += 1
+                logger.info(
+                    "Loaded filing %s for %s: %d rubrics (FY %s)",
+                    ref_number, cbe, len(rows), fiscal_year,
+                )
+            else:
+                logger.info("Filing %s for %s had no rubrics", ref_number, cbe)
+
+        # --- Step 5: Refresh materialized tables for this company ---
+        _refresh_materialized_for_company(cur, conn, cbe)
+
+        cur.close()
+    except Exception as e:
+        conn.rollback()
+        logger.exception("Error loading financial data for %s", cbe)
+        raise HTTPException(status_code=500, detail=f"Error loading data: {e}")
+    finally:
+        from db import put_connection
+        put_connection(conn)
+
+    result = {
+        "enterprise_number": cbe,
+        "filings_found": len(references),
+        "filings_loaded": filings_loaded,
+        "rubrics_loaded": total_rubrics,
+        "status": "loaded" if filings_loaded > 0 else "no_new_data",
+    }
+    if errors:
+        result["errors"] = errors
+    return result
+
+
+def _refresh_materialized_for_company(cur, conn, cbe: str):
+    """Refresh financial_latest and financial_by_year for a single company.
+
+    Instead of rebuilding the full tables (expensive), we delete+reinsert
+    only the rows for this company using the financial_summary view.
+    """
+    # Refresh financial_latest for this company
+    cur.execute("DELETE FROM financial_latest WHERE enterprise_number = %s", (cbe,))
+    cur.execute("""
+        INSERT INTO financial_latest
+        SELECT enterprise_number, fiscal_year, filing_model,
+               revenue, ebit, da, ebitda, net_profit,
+               equity, lt_financial_debt, st_financial_debt, cash,
+               total_assets, fte_total, personnel_costs
+        FROM (
+            SELECT *,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY enterprise_number
+                       ORDER BY fiscal_year DESC, deposit_key DESC
+                   ) AS rn
+            FROM financial_summary
+            WHERE enterprise_number = %s
+        ) sub
+        WHERE rn = 1
+    """, (cbe,))
+
+    # Refresh financial_by_year for this company
+    cur.execute("DELETE FROM financial_by_year WHERE enterprise_number = %s", (cbe,))
+    cur.execute("""
+        INSERT INTO financial_by_year
+        SELECT enterprise_number, fiscal_year, filing_model,
+               revenue, ebit, da, ebitda, net_profit,
+               equity, lt_financial_debt, st_financial_debt, cash,
+               total_assets, fte_total, personnel_costs
+        FROM financial_summary
+        WHERE enterprise_number = %s
+    """, (cbe,))
+
+    # Also upsert company_info if this company isn't in it yet
+    cur.execute("SELECT 1 FROM company_info WHERE enterprise_number = %s", (cbe,))
+    if not cur.fetchone():
+        cur.execute("""
+            INSERT INTO company_info (enterprise_number, name, city, zipcode, nace_code)
+            SELECT
+                %s,
+                MAX(d.denomination),
+                MAX(a.municipality_nl),
+                MAX(a.zipcode),
+                MAX(act.nace_code)
+            FROM enterprise e
+            LEFT JOIN denomination d
+                   ON d.entity_number = e.enterprise_number
+                  AND d.type_of_denomination = '001'
+                  AND d.language IN ('2', '1')
+            LEFT JOIN address a
+                   ON a.entity_number = e.enterprise_number
+                  AND a.type_of_address = 'REGO'
+            LEFT JOIN activity act
+                   ON act.entity_number = e.enterprise_number
+                  AND act.classification = 'MAIN'
+            WHERE e.enterprise_number = %s
+        """, (cbe, cbe))
+
+    conn.commit()
+    logger.info("Refreshed materialized tables for %s", cbe)
 
 
 # ---------------------------------------------------------------------------

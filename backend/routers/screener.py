@@ -95,9 +95,12 @@ async def screener(
                     THEN ROUND((fl.ebitda / fl.revenue * 100)::numeric, 1)
                END AS "margin_pct",
                fl.net_profit AS "net_profit",
-               fl.fte_total AS "fte"
+               fl.fte_total AS "fte",
+               e.juridical_form AS "jf_label",
+               e.start_date AS "start_date"
         FROM financial_latest fl
         JOIN company_info ci ON ci.enterprise_number = fl.enterprise_number
+        LEFT JOIN enterprise e ON e.enterprise_number = fl.enterprise_number
         LEFT JOIN nace_lookup nl ON nl.nace_code = ci.nace_code
         WHERE 1=1 {where}
         ORDER BY {sort_sql}
@@ -108,11 +111,15 @@ async def screener(
     try:
         rows = fetch_all(sql, tuple(params))
 
-        # Convert Decimals to floats for JSON serialization
+        # Convert Decimals to floats and dates to strings for JSON serialization
+        import decimal
+        import datetime
         for row in rows:
             for key in ("revenue", "ebit", "ebitda", "margin_pct", "net_profit", "fte"):
                 if row.get(key) is not None:
                     row[key] = float(row[key])
+            if isinstance(row.get("start_date"), (datetime.date, datetime.datetime)):
+                row["start_date"] = str(row["start_date"])
 
         return rows
     except Exception as e:

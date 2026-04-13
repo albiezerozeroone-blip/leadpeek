@@ -168,7 +168,7 @@ async def stats_evolution(
 @router.get("/sectors")
 async def stats_sectors(
     province: Optional[str] = Query(None),
-    top_n: int = Query(10, ge=5, le=20),
+    top_n: int = Query(10, ge=5, le=50),
 ):
     """Sector breakdown by 2-digit NACE code.
 

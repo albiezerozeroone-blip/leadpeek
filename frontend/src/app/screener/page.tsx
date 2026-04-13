@@ -53,6 +53,8 @@ interface ScreenerRow {
   margin_pct: number | null;
   net_profit: number | null;
   fte: number | null;
+  jf_label: string | null;
+  start_date: string | null;
 }
 
 interface Filters {
@@ -117,6 +119,8 @@ function exportCsv(rows: ScreenerRow[]) {
   const headers = [
     "CBE",
     "Name",
+    "Legal Form",
+    "Founded",
     "NACE",
     "City",
     "FY",
@@ -131,6 +135,8 @@ function exportCsv(rows: ScreenerRow[]) {
     [
       fmtCbe(r.cbe),
       `"${(r.name ?? "").replace(/"/g, '""')}"`,
+      `"${(r.jf_label ?? "").replace(/"/g, '""')}"`,
+      r.start_date ? r.start_date.slice(0, 4) : "",
       `"${(r.nace ?? "").replace(/"/g, '""')}"`,
       r.city ?? "",
       r.fiscal_year ?? "",
@@ -161,7 +167,7 @@ function SkeletonRows({ count }: { count: number }) {
     <>
       {Array.from({ length: count }).map((_, i) => (
         <TableRow key={i}>
-          {Array.from({ length: 11 }).map((_, j) => (
+          {Array.from({ length: 13 }).map((_, j) => (
             <TableCell key={j}>
               <div className="h-4 w-full animate-pulse rounded bg-slate-200" />
             </TableCell>
@@ -524,6 +530,8 @@ export default function ScreenerPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Company</TableHead>
+                    <TableHead>Legal Form</TableHead>
+                    <TableHead>Founded</TableHead>
                     <TableHead>NACE</TableHead>
                     <TableHead>City</TableHead>
                     <TableHead className="text-right">Revenue</TableHead>
@@ -576,6 +584,8 @@ export default function ScreenerPage() {
                   <TableHeader>
                     <TableRow className="bg-slate-50">
                       <TableHead className="min-w-[200px]">Company</TableHead>
+                      <TableHead>Legal Form</TableHead>
+                      <TableHead>Founded</TableHead>
                       <TableHead className="min-w-[180px]">NACE</TableHead>
                       <TableHead>City</TableHead>
                       <TableHead className="text-right">Revenue</TableHead>
@@ -597,6 +607,15 @@ export default function ScreenerPage() {
                           >
                             {row.name || fmtCbe(row.cbe)}
                           </Link>
+                          <div className="text-[11px] text-slate-400 font-normal mt-0.5">
+                            {fmtCbe(row.cbe)}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-xs text-slate-600 whitespace-nowrap">
+                          {row.jf_label ?? "\u2014"}
+                        </TableCell>
+                        <TableCell className="text-xs text-slate-600">
+                          {row.start_date ? row.start_date.slice(0, 4) : "\u2014"}
                         </TableCell>
                         <TableCell
                           className="max-w-[220px] truncate text-xs text-slate-600"

@@ -70,6 +70,8 @@ export interface ScreenerRow {
   margin_pct: number | null;
   net_profit: number | null;
   fte: number | null;
+  jf_label: string | null;
+  start_date: string | null;
 }
 
 export interface ScreenerFilters {
