@@ -162,13 +162,13 @@ export default function NetworkGraph({ cbe, companyName }: Props) {
         <div
           ref={containerRef}
           className="border border-slate-200 rounded-lg overflow-hidden bg-white"
-          style={{ height: 400 }}
+          style={{ height: 600 }}
         >
           <ForceGraph
             ref={graphRef}
             graphData={graphData}
             width={containerRef.current?.clientWidth || 800}
-            height={400}
+            height={600}
             nodeColor={nodeColor}
             nodeLabel={(node: { label?: string }) => node.label || ""}
             nodeRelSize={6}

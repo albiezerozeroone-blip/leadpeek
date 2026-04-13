@@ -680,7 +680,8 @@ export default function CompanyDetailPage(props: {
               No structure data available for this company.
             </p>
           ) : (
-            <>
+            <div className="grid gap-4 lg:grid-cols-2">
+              {/* Left column: collapsible cards */}
               <div className="space-y-4">
                   {/* Shareholders (collapsible) */}
                   {structure.shareholders.length > 0 && (
@@ -811,44 +812,63 @@ export default function CompanyDetailPage(props: {
                   )}
               </div>
 
-              {/* Ownership Timeline */}
-              {(structure.participating_interests.length > 0 || structure.shareholders.length > 0) && (
-                <Card className="mt-6">
-                  <CardContent className="pt-4">
-                    <h3 className="text-sm font-semibold text-slate-700 mb-3">Ownership Timeline</h3>
-                    <div className="space-y-2">
-                      {[
-                        ...structure.participating_interests.map(pi => ({
-                          name: pi.name,
-                          type: "subsidiary" as const,
-                          pct: pi.ownership_pct,
-                          year: pi.fiscal_year || "\u2014",
-                        })),
-                        ...structure.shareholders.map(sh => ({
-                          name: sh.name,
-                          type: "shareholder" as const,
-                          pct: sh.ownership_pct,
-                          year: sh.fiscal_year || "\u2014",
-                        })),
-                      ]
-                        .sort((a, b) => String(b.year).localeCompare(String(a.year)))
-                        .map((item, i) => (
-                          <div key={i} className="flex items-center gap-3 text-sm border-l-2 border-slate-200 pl-3 py-1">
-                            <span className="text-xs text-slate-400 font-mono w-10">{item.year}</span>
-                            <Badge variant={item.type === "shareholder" ? "default" : "secondary"} className="text-[10px]">
-                              {item.type === "shareholder" ? "SH" : "SUB"}
-                            </Badge>
-                            <span className="text-slate-700">{item.name}</span>
-                            {item.pct != null && (
-                              <span className="text-slate-400 text-xs">{item.pct}%</span>
-                            )}
-                          </div>
-                        ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </>
+              {/* Right column: visual timelines */}
+              <div className="space-y-4">
+                {/* Shareholder Timeline */}
+                {structure.shareholders.filter(sh => sh.fiscal_year).length > 0 && (
+                  <Card>
+                    <CardContent className="pt-4">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 border-l-[3px] border-green-500 pl-2 mb-4">
+                        Shareholder Timeline
+                      </h3>
+                      <div className="relative pl-6">
+                        <div className="absolute left-2 top-0 bottom-0 w-px bg-green-200" />
+                        {structure.shareholders
+                          .filter(sh => sh.fiscal_year)
+                          .sort((a, b) => String(b.fiscal_year).localeCompare(String(a.fiscal_year)))
+                          .map((sh, i) => (
+                            <div key={i} className="relative mb-4 last:mb-0">
+                              <div className="absolute -left-4 top-1 w-2.5 h-2.5 rounded-full bg-green-500 border-2 border-white" />
+                              <div className="text-xs font-mono text-slate-400 mb-0.5">{sh.fiscal_year}</div>
+                              <div className="text-sm font-medium text-slate-900">{sh.name}</div>
+                              {sh.ownership_pct != null && (
+                                <div className="text-xs text-slate-500">{sh.ownership_pct}% ownership</div>
+                              )}
+                            </div>
+                          ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Subsidiary Timeline */}
+                {structure.participating_interests.filter(pi => pi.fiscal_year).length > 0 && (
+                  <Card>
+                    <CardContent className="pt-4">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 border-l-[3px] border-orange-500 pl-2 mb-4">
+                        Subsidiary Timeline
+                      </h3>
+                      <div className="relative pl-6">
+                        <div className="absolute left-2 top-0 bottom-0 w-px bg-orange-200" />
+                        {structure.participating_interests
+                          .filter(pi => pi.fiscal_year)
+                          .sort((a, b) => String(b.fiscal_year).localeCompare(String(a.fiscal_year)))
+                          .map((pi, i) => (
+                            <div key={i} className="relative mb-4 last:mb-0">
+                              <div className="absolute -left-4 top-1 w-2.5 h-2.5 rounded-full bg-orange-500 border-2 border-white" />
+                              <div className="text-xs font-mono text-slate-400 mb-0.5">{pi.fiscal_year}</div>
+                              <div className="text-sm font-medium text-slate-900">{pi.name}</div>
+                              {pi.ownership_pct != null && (
+                                <div className="text-xs text-slate-500">{pi.ownership_pct}% ownership</div>
+                              )}
+                            </div>
+                          ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </div>
           )}
         </TabsContent>
 

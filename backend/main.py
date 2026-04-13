@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routers import dashboard, screener, companies, stats, people, favourites, feedback
+from routers import dashboard, screener, companies, stats, people, favourites, feedback, admin
 
 load_dotenv()
 
@@ -47,6 +47,7 @@ app.include_router(stats.router)
 app.include_router(people.router)
 app.include_router(favourites.router)
 app.include_router(feedback.router)
+app.include_router(admin.router)
 
 # ---------------------------------------------------------------------------
 # Health check
