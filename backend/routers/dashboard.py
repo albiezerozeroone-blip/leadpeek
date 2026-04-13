@@ -11,20 +11,20 @@ router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
 @router.get("")
 async def get_dashboard():
-    """Return KPI stats: enterprise count, financial count, filing count,
-    admin count, and snapshot date."""
+    """Return KPI stats using fast pre-computed tables (not slow COUNT on raw data)."""
     try:
         enterprise_count = fetch_one(
             "SELECT COUNT(*) AS cnt FROM enterprise WHERE status='AC'"
         )
+        # Use financial_latest (170K rows) instead of financial_data (60M+ rows)
         financial_count = fetch_one(
-            "SELECT COUNT(DISTINCT enterprise_number) AS cnt FROM financial_data"
+            "SELECT COUNT(*) AS cnt FROM financial_latest"
         )
         filing_count = fetch_one(
-            "SELECT COUNT(DISTINCT deposit_key) AS cnt FROM financial_data"
+            "SELECT COUNT(*) AS cnt FROM financial_by_year"
         )
         admin_count = fetch_one(
-            "SELECT COUNT(DISTINCT name) AS cnt FROM administrator"
+            "SELECT COUNT(*) AS cnt FROM administrator"
         )
         snapshot_date = fetch_one(
             "SELECT value FROM meta WHERE variable='SnapshotDate'"
@@ -54,7 +54,7 @@ async def get_top_companies(metric: str = "revenue", limit: int = 15):
     try:
         rows = fetch_all(f"""
             SELECT fl.enterprise_number,
-                   COALESCE(d.denomination, fl.enterprise_number) AS "name",
+                   COALESCE(ci.name, fl.enterprise_number) AS "name",
                    fl.{metric} AS "metric_value",
                    fl.ebitda,
                    fl.revenue,
@@ -68,8 +68,6 @@ async def get_top_companies(metric: str = "revenue", limit: int = 15):
                    ci.city
             FROM financial_latest fl
             JOIN company_info ci ON ci.enterprise_number = fl.enterprise_number
-            LEFT JOIN denomination d ON d.entity_number = fl.enterprise_number
-                 AND d.type_of_denomination = '001' AND d.language IN ('2','1')
             LEFT JOIN nace_lookup nl ON nl.nace_code = ci.nace_code
             WHERE fl.{metric} IS NOT NULL AND fl.{metric} > 0
             ORDER BY fl.{metric} DESC
@@ -90,7 +88,7 @@ async def get_recently_loaded(limit: int = 10):
     try:
         rows = fetch_all("""
             SELECT fl.enterprise_number,
-                   COALESCE(d.denomination, fl.enterprise_number) AS "name",
+                   COALESCE(ci.name, fl.enterprise_number) AS "name",
                    fl.revenue, fl.ebitda, fl.fiscal_year, n.loaded_at
             FROM financial_latest fl
             JOIN (
@@ -99,13 +97,11 @@ async def get_recently_loaded(limit: int = 10):
                 WHERE deposit_key != 'NO_FILINGS'
                 GROUP BY enterprise_number
             ) n ON n.enterprise_number = fl.enterprise_number
-            LEFT JOIN denomination d ON d.entity_number = fl.enterprise_number
-                 AND d.type_of_denomination = '001' AND d.language IN ('2','1')
+            LEFT JOIN company_info ci ON ci.enterprise_number = fl.enterprise_number
             ORDER BY n.loaded_at DESC
             LIMIT %s
         """, (limit,))
 
-        # Convert datetime objects to strings for JSON serialization
         for row in rows:
             if row.get("loaded_at"):
                 row["loaded_at"] = str(row["loaded_at"])
