@@ -76,7 +76,7 @@ async def search_companies(q: str = Query(..., min_length=1)):
                 LIMIT 20
             """, (f"{cbe_clean}%",))
         else:
-            # Name search on company_info (170K rows, fast) instead of denomination (3.3M)
+            # First: search company_info (170K, fast, has financials)
             rows = fetch_all("""
                 SELECT ci.enterprise_number, ci.name,
                        e.status, e.juridical_form AS "jf_label", ci.city,
@@ -92,6 +92,34 @@ async def search_companies(q: str = Query(..., min_length=1)):
                 ORDER BY ci.name
                 LIMIT 20
             """, (f"%{query}%",))
+
+            # If not enough results, also search denomination table
+            if len(rows) < 20:
+                remaining = 20 - len(rows)
+                existing_cbes = {r["enterprise_number"] for r in rows}
+                extra = fetch_all("""
+                    SELECT e.enterprise_number, d.denomination AS "name",
+                           e.status, e.juridical_form AS "jf_label",
+                           a.municipality_nl AS "city",
+                           NULL AS "sector", e.start_date,
+                           NULL::real AS "revenue", NULL::real AS "ebitda",
+                           NULL::numeric AS "ebitda_margin_pct",
+                           NULL::real AS "fte_total", NULL::integer AS "fiscal_year"
+                    FROM denomination d
+                    JOIN enterprise e ON e.enterprise_number = d.entity_number
+                    LEFT JOIN address a ON a.entity_number = e.enterprise_number AND a.type_of_address = 'REGO'
+                    WHERE d.denomination ILIKE %s
+                      AND d.type_of_denomination = '001'
+                      AND d.language IN ('2','1')
+                    ORDER BY d.denomination
+                    LIMIT %s
+                """, (f"%{query}%", remaining + 10))
+                for r in extra:
+                    if r["enterprise_number"] not in existing_cbes:
+                        rows.append(r)
+                        existing_cbes.add(r["enterprise_number"])
+                        if len(rows) >= 20:
+                            break
         return [_serialize_row(r) for r in rows]
     except Exception as e:
         logger.exception("Company search failed")
