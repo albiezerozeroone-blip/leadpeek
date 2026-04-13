@@ -4,8 +4,9 @@ import logging
 import os
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from routers import dashboard, screener, companies, stats, people, favourites, feedback, admin
 
@@ -35,6 +36,33 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ---------------------------------------------------------------------------
+# Activity logging middleware
+# ---------------------------------------------------------------------------
+
+class ActivityLogMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        # Log authenticated API requests (not health checks or static)
+        path = request.url.path
+        if path.startswith("/api/") and path != "/api/health":
+            auth = request.headers.get("authorization", "")
+            if auth.startswith("Bearer "):
+                try:
+                    from auth import _decode_token
+                    payload = _decode_token(auth[7:])
+                    email = payload.get("email", "unknown")
+                    from db import execute
+                    execute(
+                        "INSERT INTO activity_log (user_email, endpoint, method) VALUES (%s, %s, %s)",
+                        (email, path, request.method),
+                    )
+                except Exception:
+                    pass  # Don't break requests if logging fails
+        return response
+
+app.add_middleware(ActivityLogMiddleware)
 
 # ---------------------------------------------------------------------------
 # Routers

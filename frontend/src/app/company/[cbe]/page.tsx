@@ -26,6 +26,8 @@ import {
   getCompanyDetail,
   getCompanyFinancials,
   getCompanyStructure,
+  addFavourite,
+  removeFavourite,
 } from "@/lib/api";
 import { fmtEur, fmtCbe, fmtPct, fmtNumber } from "@/lib/format";
 import {
@@ -236,35 +238,19 @@ export default function CompanyDetailPage(props: {
       .finally(() => setLoading(false));
   }, [cbe]);
 
-  // Check localStorage for favourite
-  useEffect(() => {
+  const toggleFavourite = useCallback(async () => {
     try {
-      const favs: string[] = JSON.parse(
-        localStorage.getItem("favourites") || "[]"
-      );
-      setIsFavourite(favs.includes(cbe));
-    } catch {
-      // ignore
-    }
-  }, [cbe]);
-
-  const toggleFavourite = useCallback(() => {
-    try {
-      const favs: string[] = JSON.parse(
-        localStorage.getItem("favourites") || "[]"
-      );
-      const idx = favs.indexOf(cbe);
-      if (idx >= 0) {
-        favs.splice(idx, 1);
+      if (isFavourite) {
+        await removeFavourite(cbe);
+        setIsFavourite(false);
       } else {
-        favs.push(cbe);
+        await addFavourite(cbe);
+        setIsFavourite(true);
       }
-      localStorage.setItem("favourites", JSON.stringify(favs));
-      setIsFavourite(idx < 0);
     } catch {
-      // ignore
+      // Requires login — silently fail
     }
-  }, [cbe]);
+  }, [cbe, isFavourite]);
 
   const handleTabChange = useCallback(
     (value: any) => {

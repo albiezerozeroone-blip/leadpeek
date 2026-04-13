@@ -290,14 +290,19 @@ async def get_company_structure(cbe: str):
     cbe = cbe.strip().replace(".", "")
 
     try:
-        # Deduplicate admins: only latest filing per person+role
+        # Only return admins from the most recent filing
         admins = fetch_all("""
+            WITH latest AS (
+                SELECT MAX(deposit_key) AS dk
+                FROM administrator WHERE enterprise_number = %s
+            )
             SELECT DISTINCT ON (name, role) name, role, person_type, identifier,
                    mandate_start, mandate_end, representative_name, fiscal_year, deposit_key
-            FROM administrator
-            WHERE enterprise_number = %s
-            ORDER BY name, role, deposit_key DESC
-        """, (cbe,))
+            FROM administrator a
+            JOIN latest l ON a.deposit_key = l.dk
+            WHERE a.enterprise_number = %s
+            ORDER BY name, role
+        """, (cbe, cbe))
 
         # Deduplicate participating interests: latest filing per subsidiary
         pis = fetch_all("""

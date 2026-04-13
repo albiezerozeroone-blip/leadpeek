@@ -58,10 +58,8 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8">
-      {/* Hero */}
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900">Belgian Company Intelligence</h1>
-      </div>
+      {/* Spacer */}
+      <div />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">

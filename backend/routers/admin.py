@@ -153,3 +153,45 @@ async def clear_feedback(user=Depends(_require_admin)):
     except Exception as e:
         logger.exception("Clear feedback failed")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/activity")
+async def get_activity(user=Depends(_require_admin)):
+    """Recent user activity across the platform."""
+    try:
+        rows = fetch_all("""
+            SELECT user_email, endpoint, method, created_at
+            FROM activity_log
+            ORDER BY created_at DESC
+            LIMIT 200
+        """)
+        for r in rows:
+            if r.get("created_at"):
+                r["created_at"] = str(r["created_at"])
+        return rows
+    except Exception as e:
+        logger.exception("Activity log failed")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/activity/summary")
+async def activity_summary(user=Depends(_require_admin)):
+    """Activity summary: requests per user in last 24h."""
+    try:
+        rows = fetch_all("""
+            SELECT user_email,
+                   COUNT(*) AS total_requests,
+                   COUNT(DISTINCT endpoint) AS unique_pages,
+                   MAX(created_at) AS last_active
+            FROM activity_log
+            WHERE created_at > NOW() - INTERVAL '7 days'
+            GROUP BY user_email
+            ORDER BY total_requests DESC
+        """)
+        for r in rows:
+            if r.get("last_active"):
+                r["last_active"] = str(r["last_active"])
+        return rows
+    except Exception as e:
+        logger.exception("Activity summary failed")
+        raise HTTPException(status_code=500, detail=str(e))
