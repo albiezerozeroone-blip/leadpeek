@@ -1,12 +1,13 @@
-"""Favourites router — track companies of interest for deal sourcing."""
+"""Favourites router — per-user company tracking."""
 
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
 from db import fetch_all, fetch_one, execute
+from auth import get_current_user, optional_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/favourites", tags=["favourites"])
@@ -18,7 +19,6 @@ class FavouriteCreate(BaseModel):
 
 
 def _serialize_row(row: dict) -> dict:
-    """Convert Decimal/date types to JSON-safe primitives."""
     import decimal
     import datetime
     out = {}
@@ -32,63 +32,41 @@ def _serialize_row(row: dict) -> dict:
     return out
 
 
-# ---------------------------------------------------------------------------
-# GET /api/favourites
-# ---------------------------------------------------------------------------
-
 @router.get("")
-async def list_favourites():
-    """List all favourites with company name, sector, and latest financials.
-
-    SQL extracted from app/components.py get_favourites().
-    Global favourites (not per-user) for now.
-    """
+async def list_favourites(user=Depends(get_current_user)):
+    """List favourites for the logged-in user."""
     try:
         rows = fetch_all("""
             SELECT f.enterprise_number, f.added_at, f.notes,
-                   d.denomination AS "name",
-                   a.nace_code, fl.revenue, fl.ebitda, fl.fte_total,
+                   COALESCE(ci.name, d.denomination) AS "name",
+                   ci.city, ci.nace_code,
+                   fl.revenue, fl.ebitda, fl.fte_total,
                    CASE WHEN fl.revenue > 0
                         THEN ROUND((fl.ebitda / fl.revenue * 100)::numeric, 1)
                    END AS "margin"
             FROM favourite f
-            LEFT JOIN (
-                SELECT entity_number, denomination FROM denomination
-                WHERE type_of_denomination = '001'
-                GROUP BY entity_number, denomination
-            ) d ON d.entity_number = f.enterprise_number
-            LEFT JOIN (
-                SELECT entity_number, nace_code
-                FROM activity
-                WHERE classification = 'MAIN' AND nace_version = '2008'
-                GROUP BY entity_number, nace_code
-            ) a ON a.entity_number = f.enterprise_number
+            LEFT JOIN company_info ci ON ci.enterprise_number = f.enterprise_number
+            LEFT JOIN denomination d ON d.entity_number = f.enterprise_number
+                 AND d.type_of_denomination = '001' AND d.language IN ('2','1')
             LEFT JOIN financial_latest fl ON fl.enterprise_number = f.enterprise_number
+            WHERE f.user_id = %s
             ORDER BY f.added_at DESC
-        """)
-
+        """, (user["id"],))
         return [_serialize_row(r) for r in rows]
     except Exception as e:
         logger.exception("List favourites failed")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ---------------------------------------------------------------------------
-# POST /api/favourites
-# ---------------------------------------------------------------------------
-
 @router.post("", status_code=201)
-async def add_favourite(body: FavouriteCreate):
-    """Add a company to favourites (no-op if already there).
-
-    SQL extracted from app/components.py add_favourite().
-    """
+async def add_favourite(body: FavouriteCreate, user=Depends(get_current_user)):
+    """Add a company to the user's favourites."""
     cbe = str(body.enterprise_number).replace(".", "").zfill(10)
-
     try:
         execute(
-            "INSERT INTO favourite (enterprise_number, notes) VALUES (%s, %s) ON CONFLICT DO NOTHING",
-            (cbe, body.notes),
+            """INSERT INTO favourite (user_id, enterprise_number, notes)
+               VALUES (%s, %s, %s) ON CONFLICT DO NOTHING""",
+            (user["id"], cbe, body.notes),
         )
         return {"enterprise_number": cbe, "status": "added"}
     except Exception as e:
@@ -96,30 +74,21 @@ async def add_favourite(body: FavouriteCreate):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ---------------------------------------------------------------------------
-# DELETE /api/favourites/{cbe}
-# ---------------------------------------------------------------------------
-
 @router.delete("/{cbe}")
-async def remove_favourite(cbe: str):
-    """Remove a company from favourites.
-
-    SQL extracted from app/components.py remove_favourite().
-    """
+async def remove_favourite(cbe: str, user=Depends(get_current_user)):
+    """Remove a company from the user's favourites."""
     cbe = cbe.strip().replace(".", "").zfill(10)
-
     try:
-        # Check it exists first
         existing = fetch_one(
-            "SELECT 1 FROM favourite WHERE enterprise_number = %s",
-            (cbe,),
+            "SELECT 1 FROM favourite WHERE user_id = %s AND enterprise_number = %s",
+            (user["id"], cbe),
         )
         if not existing:
             raise HTTPException(status_code=404, detail=f"Favourite {cbe} not found")
 
         execute(
-            "DELETE FROM favourite WHERE enterprise_number = %s",
-            (cbe,),
+            "DELETE FROM favourite WHERE user_id = %s AND enterprise_number = %s",
+            (user["id"], cbe),
         )
         return {"enterprise_number": cbe, "status": "removed"}
     except HTTPException:
