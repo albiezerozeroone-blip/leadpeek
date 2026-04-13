@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { Bug, Lightbulb } from "lucide-react";
+import { Bug, Lightbulb, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -138,6 +138,41 @@ function FeedbackDialog({
   );
 }
 
+function DonateButton() {
+  const [loading, setLoading] = useState(false);
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
+
+  async function handleDonate() {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/stripe/donate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: 500 }),
+      });
+      const data = await res.json();
+      if (data.checkout_url) {
+        window.location.href = data.checkout_url;
+      }
+    } catch {
+      // Silent fail
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <button
+      onClick={handleDonate}
+      disabled={loading}
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-rose-600 bg-rose-50 border border-rose-200 rounded-full hover:bg-rose-100 hover:border-rose-300 transition-colors cursor-pointer"
+    >
+      <Heart className="w-3.5 h-3.5" />
+      {loading ? "..." : "Support us"}
+    </button>
+  );
+}
+
 export default function FeedbackButtons() {
   return (
     <div className="flex items-center gap-1.5">
@@ -153,6 +188,7 @@ export default function FeedbackButtons() {
         label="Suggest idea"
         placeholder="What feature or improvement would you like to see?"
       />
+      <DonateButton />
     </div>
   );
 }
