@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -54,6 +55,13 @@ interface FeedbackRow {
   description: string;
   user_email: string | null;
   created_at: string;
+}
+
+interface ActivitySummary {
+  user_email: string;
+  total_requests: number;
+  unique_pages: number;
+  last_active: string;
 }
 
 /* ---------- API helper ---------- */
@@ -132,6 +140,8 @@ export default function AdminPanel() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [confirmClearFeedback, setConfirmClearFeedback] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [userSearch, setUserSearch] = useState("");
+  const [activity, setActivity] = useState<ActivitySummary[]>([]);
 
   const loadData = useCallback(async () => {
     try {
@@ -139,14 +149,16 @@ export default function AdminPanel() {
       const { data: sessionData } = await supabase.auth.getSession();
       setMyEmail(sessionData.session?.user?.email || "");
 
-      const [s, u, f] = await Promise.all([
+      const [s, u, f, a] = await Promise.all([
         adminFetch<AdminStats>("/api/admin/stats"),
         adminFetch<UserRow[]>("/api/admin/users"),
         adminFetch<FeedbackRow[]>("/api/admin/feedback"),
+        adminFetch<ActivitySummary[]>("/api/admin/activity/summary").catch(() => [] as ActivitySummary[]),
       ]);
       setStats(s);
       setUsers(u);
       setFeedback(f);
+      setActivity(a);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Unknown error";
       setError(message);
@@ -222,6 +234,10 @@ export default function AdminPanel() {
   }
 
   /* ---- Derived data ---- */
+
+  const filteredUsers = users.filter(u =>
+    u.email.toLowerCase().includes(userSearch.toLowerCase())
+  );
 
   const bugs = feedback.filter((f) => f.type === "bug");
   const suggestions = feedback.filter((f) => f.type === "suggestion");
@@ -445,6 +461,12 @@ export default function AdminPanel() {
       {/* ======== 2. Users Table ======== */}
       <div>
         <SectionHeading>Users ({users.length})</SectionHeading>
+        <Input
+          placeholder="Search users..."
+          value={userSearch}
+          onChange={(e) => setUserSearch(e.target.value)}
+          className="max-w-sm mb-3"
+        />
         <Card className="bg-white">
           <Table>
             <TableHeader>
@@ -468,7 +490,7 @@ export default function AdminPanel() {
                       ))}
                     </TableRow>
                   ))
-                : users.map((u) => {
+                : filteredUsers.map((u) => {
                     const isMe = u.email === myEmail;
                     return (
                       <TableRow key={u.email}>
@@ -787,6 +809,61 @@ export default function AdminPanel() {
             )}
           </div>
         )}
+      </div>
+
+      {/* ======== 4. User Activity ======== */}
+      <div>
+        <SectionHeading>User Activity (7 days)</SectionHeading>
+        <Card className="bg-white">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Email</TableHead>
+                <TableHead className="text-right">Total Requests</TableHead>
+                <TableHead className="text-right">Unique Pages</TableHead>
+                <TableHead>Last Active</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading
+                ? Array.from({ length: 3 }).map((_, i) => (
+                    <TableRow key={i}>
+                      {Array.from({ length: 4 }).map((_, j) => (
+                        <TableCell key={j}>
+                          <Skeleton className="h-4 w-24" />
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                : activity.length === 0
+                  ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-8 text-sm text-slate-400">
+                        No activity data available
+                      </TableCell>
+                    </TableRow>
+                  )
+                  : [...activity]
+                      .sort((a, b) => b.total_requests - a.total_requests)
+                      .map((row) => (
+                        <TableRow key={row.user_email}>
+                          <TableCell className="font-medium">
+                            {row.user_email}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-sm">
+                            {fmt(row.total_requests)}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-sm">
+                            {fmt(row.unique_pages)}
+                          </TableCell>
+                          <TableCell className="text-sm text-slate-500">
+                            {new Date(row.last_active).toLocaleString()}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+            </TableBody>
+          </Table>
+        </Card>
       </div>
     </div>
   );

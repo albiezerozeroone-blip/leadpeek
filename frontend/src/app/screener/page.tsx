@@ -36,6 +36,7 @@ import {
   Search,
   RotateCcw,
   Loader2,
+  Filter,
 } from "lucide-react";
 
 /* ---------- types ---------- */
@@ -219,7 +220,10 @@ export default function ScreenerPage() {
     <div className="mx-auto w-full max-w-[1400px] px-4 py-6">
       {/* Page header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Company Screener</h1>
+        <h1 className="text-2xl font-bold text-slate-900">
+          <Search className="w-5 h-5 inline mr-2" />
+          Company Screener
+        </h1>
         <p className="mt-1 text-sm text-slate-500">
           Filter and browse Belgian companies by financial metrics
         </p>
@@ -233,6 +237,7 @@ export default function ScreenerPage() {
         >
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm font-semibold text-slate-700">
+              <Filter className="w-4 h-4 inline mr-2" />
               Filters
             </CardTitle>
             {filtersOpen ? (

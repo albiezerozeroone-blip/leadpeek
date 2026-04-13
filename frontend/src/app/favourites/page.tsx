@@ -100,7 +100,10 @@ export default function FavouritesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Favourites</h1>
+          <h1 className="text-2xl font-bold text-slate-900">
+            <Star className="w-5 h-5 inline mr-2" />
+            Favourites
+          </h1>
           <p className="mt-1 text-sm text-slate-500">
             Companies you are tracking for deal sourcing
           </p>

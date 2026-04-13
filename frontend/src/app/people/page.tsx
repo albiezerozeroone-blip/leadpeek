@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/table";
 import { searchPeople, getPersonConnections } from "@/lib/api";
 import { fmtEur, fmtPct, fmtNumber } from "@/lib/format";
-import { Search, Loader2, ChevronDown, ChevronRight, User } from "lucide-react";
+import { Search, Loader2, ChevronDown, ChevronRight, User, UserSearch } from "lucide-react";
 
 /* ---------- types ---------- */
 
@@ -155,7 +155,10 @@ export default function PeoplePage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">People Search</h1>
+        <h1 className="text-2xl font-bold text-slate-900">
+          <UserSearch className="w-5 h-5 inline mr-2" />
+          People Search
+        </h1>
         <p className="mt-1 text-sm text-slate-500">
           Find administrators and shareholders by name
         </p>

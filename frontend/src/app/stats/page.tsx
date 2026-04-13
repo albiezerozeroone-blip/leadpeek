@@ -21,7 +21,7 @@ import {
   type StatsSector,
 } from "@/lib/api";
 import { fmtEur, fmtPct, fmtNumber } from "@/lib/format";
-import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { ArrowUpDown, ArrowUp, ArrowDown, BarChart3 } from "lucide-react";
 
 /* ---------- skeleton helpers ---------- */
 
@@ -132,7 +132,10 @@ export default function StatsPage() {
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Sector Statistics</h1>
+        <h1 className="text-2xl font-bold text-slate-900">
+          <BarChart3 className="w-5 h-5 inline mr-2" />
+          Sector Statistics
+        </h1>
         <p className="mt-1 text-sm text-slate-500">
           Aggregate metrics across all sectors in the database
         </p>

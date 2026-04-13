@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Lock } from "lucide-react";
 
 type Mode = "login" | "signup" | "forgot";
 
@@ -92,7 +93,10 @@ export default function LoginPage() {
         <CardContent className="pt-8 pb-6 px-8">
           {/* Header */}
           <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-slate-900">{titles[mode]}</h1>
+            <h1 className="text-2xl font-bold text-slate-900">
+              <Lock className="w-5 h-5 inline mr-2" />
+              {titles[mode]}
+            </h1>
             <p className="text-sm text-slate-500 mt-1">
               {mode === "forgot"
                 ? "Enter your email and we'll send you a reset link"

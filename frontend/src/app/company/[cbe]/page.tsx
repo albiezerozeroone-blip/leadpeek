@@ -35,6 +35,11 @@ import {
   ArrowLeft,
   ExternalLink,
   ChevronDown,
+  TrendingUp,
+  Users,
+  Network,
+  GitBranch,
+  FileText,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 
@@ -384,11 +389,26 @@ export default function CompanyDetailPage(props: {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList>
-          <TabsTrigger value="financials">Financials</TabsTrigger>
-          <TabsTrigger value="administrators">Administrators</TabsTrigger>
-          <TabsTrigger value="structure">Structure</TabsTrigger>
-          <TabsTrigger value="network">Network</TabsTrigger>
-          <TabsTrigger value="publications">Publications</TabsTrigger>
+          <TabsTrigger value="financials">
+            <TrendingUp className="w-4 h-4 mr-1.5" />
+            Financials
+          </TabsTrigger>
+          <TabsTrigger value="administrators">
+            <Users className="w-4 h-4 mr-1.5" />
+            Administrators
+          </TabsTrigger>
+          <TabsTrigger value="structure">
+            <Network className="w-4 h-4 mr-1.5" />
+            Structure
+          </TabsTrigger>
+          <TabsTrigger value="network">
+            <GitBranch className="w-4 h-4 mr-1.5" />
+            Network
+          </TabsTrigger>
+          <TabsTrigger value="publications">
+            <FileText className="w-4 h-4 mr-1.5" />
+            Publications
+          </TabsTrigger>
         </TabsList>
 
         {/* ===== Financials tab ===== */}

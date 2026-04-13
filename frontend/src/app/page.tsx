@@ -5,23 +5,34 @@ import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { getDashboard, type DashboardKPIs } from "@/lib/api";
 import { fmtNumber } from "@/lib/format";
+import {
+  Building2,
+  BarChart3,
+  FileText,
+  Users,
+  Calendar,
+  Search,
+  Building,
+  BarChart,
+  UserSearch,
+} from "lucide-react";
 
 function Skeleton({ className = "" }: { className?: string }) {
   return <div className={`animate-pulse bg-slate-200 rounded ${className}`} />;
 }
 
 const KPI_META = [
-  { key: "enterprise_count" as const, label: "Active Enterprises" },
-  { key: "financial_count" as const, label: "Companies with Financials" },
-  { key: "filing_count" as const, label: "Filings Loaded" },
-  { key: "admin_count" as const, label: "Administrators Indexed" },
+  { key: "enterprise_count" as const, label: "Active Enterprises", icon: Building2 },
+  { key: "financial_count" as const, label: "Companies with Financials", icon: BarChart3 },
+  { key: "filing_count" as const, label: "Filings Loaded", icon: FileText },
+  { key: "admin_count" as const, label: "Administrators Indexed", icon: Users },
 ];
 
 const QUICK_ACCESS = [
-  { href: "/screener", title: "Screener", desc: "Filter by sector, revenue, EBITDA, FTE, region" },
-  { href: "/company", title: "Company", desc: "Search by name or CBE -- financials, structure, filings" },
-  { href: "/stats", title: "Stats", desc: "Sector benchmarks, margins, leverage, geography" },
-  { href: "/people", title: "People", desc: "Find administrators and shareholders by name" },
+  { href: "/screener", title: "Screener", desc: "Filter by sector, revenue, EBITDA, FTE, region", icon: Search },
+  { href: "/company", title: "Company", desc: "Search by name or CBE -- financials, structure, filings", icon: Building },
+  { href: "/stats", title: "Stats", desc: "Sector benchmarks, margins, leverage, geography", icon: BarChart },
+  { href: "/people", title: "People", desc: "Find administrators and shareholders by name", icon: UserSearch },
 ];
 
 const PROVINCES = [
@@ -63,26 +74,31 @@ export default function Dashboard() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-        {KPI_META.map((kpi) => (
-          <Card key={kpi.key} className="bg-white">
-            <CardContent className="pt-5 pb-4 text-center">
-              {loading ? (
-                <><Skeleton className="h-8 w-24 mx-auto mb-2" /><Skeleton className="h-3 w-20 mx-auto" /></>
-              ) : (
-                <>
-                  <div className="text-2xl font-bold text-slate-900">{kpis ? fmtNumber(kpis[kpi.key]) : "—"}</div>
-                  <div className="text-[11px] uppercase tracking-wide text-slate-400 mt-1">{kpi.label}</div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        ))}
+        {KPI_META.map((kpi) => {
+          const Icon = kpi.icon;
+          return (
+            <Card key={kpi.key} className="bg-white">
+              <CardContent className="pt-5 pb-4 text-center">
+                {loading ? (
+                  <><Skeleton className="h-8 w-24 mx-auto mb-2" /><Skeleton className="h-3 w-20 mx-auto" /></>
+                ) : (
+                  <>
+                    <Icon className="w-5 h-5 text-indigo-500 mx-auto mb-2" />
+                    <div className="text-2xl font-bold text-slate-900">{kpis ? fmtNumber(kpis[kpi.key]) : "—"}</div>
+                    <div className="text-[11px] uppercase tracking-wide text-slate-400 mt-1">{kpi.label}</div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
         <Card className="bg-white">
           <CardContent className="pt-5 pb-4 text-center">
             {loading ? (
               <><Skeleton className="h-8 w-24 mx-auto mb-2" /><Skeleton className="h-3 w-20 mx-auto" /></>
             ) : (
               <>
+                <Calendar className="w-5 h-5 text-indigo-500 mx-auto mb-2" />
                 <div className="text-2xl font-bold text-slate-900">{kpis?.snapshot_date || "—"}</div>
                 <div className="text-[11px] uppercase tracking-wide text-slate-400 mt-1">Snapshot Date</div>
               </>
@@ -95,16 +111,22 @@ export default function Dashboard() {
       <div>
         <h2 className="text-xs font-bold uppercase tracking-wide text-slate-500 border-l-2 border-indigo-600 pl-2 mb-4">Quick Access</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {QUICK_ACCESS.map((item) => (
-            <Link key={item.href} href={item.href}>
-              <Card className="bg-white hover:shadow-md transition-shadow cursor-pointer border-l-4 border-l-indigo-600 h-full">
-                <CardContent className="pt-4 pb-4">
-                  <h3 className="font-semibold text-slate-900">{item.title}</h3>
-                  <p className="text-sm text-slate-500 mt-1">{item.desc}</p>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
+          {QUICK_ACCESS.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link key={item.href} href={item.href}>
+                <Card className="bg-white hover:shadow-md transition-shadow cursor-pointer border-l-4 border-l-indigo-600 h-full">
+                  <CardContent className="pt-4 pb-4">
+                    <h3 className="font-semibold text-slate-900">
+                      <Icon className="w-4 h-4 inline mr-2" />
+                      {item.title}
+                    </h3>
+                    <p className="text-sm text-slate-500 mt-1">{item.desc}</p>
+                  </CardContent>
+                </Card>
+              </Link>
+            );
+          })}
         </div>
       </div>
 
