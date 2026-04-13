@@ -8,15 +8,17 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
     ...(init?.headers as Record<string, string>),
   };
 
-  // Attach auth token if available
-  try {
-    const supabase = createClient();
-    const { data } = await supabase.auth.getSession();
-    if (data.session?.access_token) {
-      headers["Authorization"] = `Bearer ${data.session.access_token}`;
+  // Attach auth token if available (only in browser)
+  if (typeof window !== "undefined") {
+    try {
+      const supabase = createClient();
+      const { data } = await supabase.auth.getSession();
+      if (data.session?.access_token) {
+        headers["Authorization"] = `Bearer ${data.session.access_token}`;
+      }
+    } catch {
+      // No auth available — continue without token
     }
-  } catch {
-    // No auth available — continue without token
   }
 
   const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
