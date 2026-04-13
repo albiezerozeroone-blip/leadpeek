@@ -27,7 +27,7 @@ def _get_pool():
     if _pool is None or _pool.closed:
         if not _DATABASE_URL:
             raise RuntimeError("DATABASE_URL not set in environment / .env file")
-        _pool = psycopg2.pool.SimpleConnectionPool(1, 3, _DATABASE_URL)
+        _pool = psycopg2.pool.SimpleConnectionPool(2, 10, _DATABASE_URL)
     return _pool
 
 

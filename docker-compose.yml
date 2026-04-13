@@ -3,6 +3,8 @@ services:
     build: ./backend
     restart: always
     env_file: .env.production
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     expose:
       - "8000"
     healthcheck:
