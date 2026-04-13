@@ -75,7 +75,7 @@ export default function LoginPage() {
   }
 
   const titles: Record<Mode, string> = {
-    login: "Sign in to Datasnoop",
+    login: "Sign in to Data Peak",
     signup: "Create your account",
     forgot: "Reset your password",
   };

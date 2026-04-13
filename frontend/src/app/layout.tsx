@@ -7,7 +7,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "Datasnoop — Belgian Company Intelligence",
+  title: "Data Peak — Belgian Company Intelligence",
   description:
     "Screen Belgian companies by sector, revenue, EBITDA, and more. KBO registry + NBB annual accounts.",
 };
