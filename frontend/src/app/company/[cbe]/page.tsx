@@ -299,11 +299,57 @@ function renderDelta(current: number | null, previous: number | null): React.Rea
   const abs = current - previous;
   const pct = (abs / Math.abs(previous)) * 100;
   const sign = abs >= 0 ? "+" : "";
+  const color = abs >= 0 ? "text-emerald-400" : "text-rose-400";
   return (
-    <div className="text-[9px] text-slate-400 mt-0.5">
-      {sign}{fmtEur(abs)} ({sign}{pct.toFixed(1)}%)
+    <div className={`text-[8px] ${color} leading-tight`}>
+      <div>{sign}{fmtEur(abs)}</div>
+      <div>{sign}{pct.toFixed(1)}%</div>
     </div>
   );
+}
+
+/** Render delta column headers between year columns */
+function renderDeltaHeaders(years: number[]): React.ReactNode[] {
+  const headers: React.ReactNode[] = [];
+  for (let i = 0; i < years.length; i++) {
+    headers.push(
+      <th key={`y-${years[i]}`} className="px-3 py-2 text-right text-slate-400 font-medium min-w-[80px]">
+        FY{years[i]}
+      </th>
+    );
+    if (i < years.length - 1) {
+      headers.push(
+        <th key={`d-${years[i]}`} className="px-1 py-2 text-center text-slate-300 font-normal w-[50px] text-[8px]">
+          Δ
+        </th>
+      );
+    }
+  }
+  return headers;
+}
+
+/** Render value cells with delta columns between years */
+function renderValueCellsWithDeltas(
+  values: (number | null)[],
+  formatter: (v: number | null) => React.ReactNode,
+  showDelta = true,
+): React.ReactNode[] {
+  const cells: React.ReactNode[] = [];
+  for (let i = 0; i < values.length; i++) {
+    cells.push(
+      <td key={`v-${i}`} className="px-3 py-1 text-right font-mono text-xs">
+        {formatter(values[i])}
+      </td>
+    );
+    if (i < values.length - 1) {
+      cells.push(
+        <td key={`d-${i}`} className="px-1 py-1 text-center">
+          {showDelta ? renderDelta(values[i + 1], values[i]) : null}
+        </td>
+      );
+    }
+  }
+  return cells;
 }
 
 /* ---------- main component ---------- */
@@ -1267,11 +1313,7 @@ export default function CompanyDetailPage(props: {
                       <thead>
                         <tr className="bg-slate-50 border-b border-slate-200">
                           <th className="px-4 py-2 text-left text-[10px] font-medium text-slate-400 uppercase tracking-wider min-w-[240px]">Line Item</th>
-                          {chronological.map((r) => (
-                            <th key={r.fiscal_year} className="px-3 py-2 text-right text-[10px] font-medium text-slate-400 uppercase tracking-wider min-w-[100px]">
-                              FY{r.fiscal_year}
-                            </th>
-                          ))}
+                          {renderDeltaHeaders(chronological.map(r => r.fiscal_year))}
                         </tr>
                       </thead>
                       <tbody>
@@ -1282,7 +1324,7 @@ export default function CompanyDetailPage(props: {
                             <React.Fragment key={line.key}>
                               {showSection && (
                                 <tr>
-                                  <td colSpan={chronological.length + 1} className="px-4 pt-3 pb-1">
+                                  <td colSpan={chronological.length * 2} className="px-4 pt-3 pb-1">
                                     <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest">{line.section}</span>
                                   </td>
                                 </tr>
@@ -1296,14 +1338,20 @@ export default function CompanyDetailPage(props: {
                                   const currentVal = r[line.key] as number | null;
                                   const prevVal = prevRow ? (prevRow[line.key] as number | null) : null;
                                   return (
-                                    <td key={r.fiscal_year} className={`px-3 py-1 text-right text-xs font-mono ${line.bold ? "font-bold" : ""}`}>
-                                      {line.isPct
-                                        ? (currentVal != null
-                                            ? <span className={`${(currentVal as number) >= 15 ? "text-emerald-600" : (currentVal as number) >= 5 ? "text-amber-600" : "text-rose-400"}`}>{(currentVal as number).toFixed(1)}%</span>
-                                            : <span className="text-slate-300">{"\u2014"}</span>)
-                                        : fmtAcct(currentVal, line.isCost, line.isKeyMetric)}
-                                      {!line.isPct && renderDelta(currentVal, prevVal)}
-                                    </td>
+                                    <React.Fragment key={`cell-${r.fiscal_year}-${line.key}`}>
+                                      {colIdx > 0 && (
+                                        <td className="px-1 py-1 text-center align-top">
+                                          {!line.isPct ? renderDelta(currentVal, prevVal) : null}
+                                        </td>
+                                      )}
+                                      <td className={`px-3 py-1 text-right text-xs font-mono ${line.bold ? "font-bold" : ""}`}>
+                                        {line.isPct
+                                          ? (currentVal != null
+                                              ? <span className={`${(currentVal as number) >= 15 ? "text-emerald-600" : (currentVal as number) >= 5 ? "text-amber-600" : "text-rose-400"}`}>{(currentVal as number).toFixed(1)}%</span>
+                                              : <span className="text-slate-300">{"\u2014"}</span>)
+                                          : fmtAcct(currentVal, line.isCost, line.isKeyMetric)}
+                                      </td>
+                                    </React.Fragment>
                                   );
                                 })}
                               </tr>
