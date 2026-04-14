@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from routers import dashboard, screener, companies, stats, people, favourites, feedback, admin, polls, stripe_pay, staatsblad
+from rate_limit import limiter, get_client_ip
 
 load_dotenv()
 
@@ -69,6 +70,47 @@ class ActivityLogMiddleware(BaseHTTPMiddleware):
         return response
 
 app.add_middleware(ActivityLogMiddleware)
+
+# ---------------------------------------------------------------------------
+# Rate limiting middleware
+# ---------------------------------------------------------------------------
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    """Per-IP rate limiting with tiered limits by endpoint type."""
+
+    # Heavy endpoints: 5/min
+    HEAVY_PREFIXES = ("/api/companies/", "/api/staatsblad/")
+    HEAVY_METHODS = ("POST",)
+
+    # Search endpoints: 30/min
+    SEARCH_PATHS = ("/api/companies/search", "/api/people/search")
+
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+        method = request.method
+
+        if not path.startswith("/api/"):
+            return await call_next(request)
+
+        ip = get_client_ip(request)
+
+        try:
+            # Heavy operations (NBB load, publication scrape)
+            if method == "POST" and any(path.startswith(p) for p in self.HEAVY_PREFIXES):
+                limiter.check(ip, max_requests=5, window_seconds=60)
+            # Search endpoints
+            elif any(path.startswith(p) for p in self.SEARCH_PATHS):
+                limiter.check(ip, max_requests=30, window_seconds=60)
+            # All other API calls
+            else:
+                limiter.check(ip, max_requests=120, window_seconds=60)
+        except Exception as e:
+            from fastapi.responses import JSONResponse
+            return JSONResponse(status_code=429, content={"detail": str(e.detail) if hasattr(e, "detail") else "Rate limit exceeded"})
+
+        return await call_next(request)
+
+app.add_middleware(RateLimitMiddleware)
 
 # ---------------------------------------------------------------------------
 # Routers
