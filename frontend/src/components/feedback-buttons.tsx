@@ -66,7 +66,7 @@ function FeedbackDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger>
-        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-full hover:bg-slate-50 hover:border-slate-300 transition-colors cursor-pointer">
+        <span className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-slate-600 bg-white border border-slate-200 rounded-full hover:bg-slate-50 hover:border-slate-300 transition-colors cursor-pointer">
           {icon}
           {label}
         </span>
@@ -163,8 +163,8 @@ function DonateButton() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger>
-        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-rose-600 bg-rose-50 border border-rose-200 rounded-full hover:bg-rose-100 hover:border-rose-300 transition-colors cursor-pointer">
-          <Heart className="w-3.5 h-3.5" />
+        <span className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-rose-600 bg-rose-50 border border-rose-200 rounded-full hover:bg-rose-100 hover:border-rose-300 transition-colors cursor-pointer">
+          <Heart className="w-3 h-3" />
           Support us
         </span>
       </DialogTrigger>
@@ -221,13 +221,13 @@ export default function FeedbackButtons() {
     <div className="flex items-center gap-1.5">
       <FeedbackDialog
         type="bug"
-        icon={<Bug className="w-3.5 h-3.5" />}
+        icon={<Bug className="w-3 h-3" />}
         label="Report bug"
         placeholder="What happened? What did you expect to happen?"
       />
       <FeedbackDialog
         type="suggestion"
-        icon={<Lightbulb className="w-3.5 h-3.5" />}
+        icon={<Lightbulb className="w-3 h-3" />}
         label="Suggest idea"
         placeholder="What feature or improvement would you like to see?"
       />

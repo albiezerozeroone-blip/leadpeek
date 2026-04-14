@@ -406,38 +406,46 @@ export default function CompanyDetailPage(props: {
             <h1 className="text-xl font-semibold text-slate-900">
               {detail.name || fmtCbe(cbe)}
             </h1>
-            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-400">
-              <span className="font-mono text-slate-500">{fmtCbe(cbe)}</span>
-              <span className={`inline-block h-1.5 w-1.5 rounded-full ${detail.status === "AC" ? "bg-emerald-500" : "bg-red-400"}`} />
-              <span>{detail.status === "AC" ? "Active" : "Ceased"}</span>
-              {detail.start_date && (
-                <span>Est. {detail.start_date.slice(0, 4)}</span>
-              )}
-            </div>
-            {/* Single subtle info line: address · NACE · legal form · website */}
-            <div className="mt-1 flex flex-wrap items-center text-xs text-slate-400">
-              {[
-                address,
-                detail.nace_code ? `NACE ${detail.nace_code}${detail.nace_label && detail.nace_label !== detail.nace_code ? ` — ${detail.nace_label}` : ""}` : null,
-                detail.jf_label,
-              ].filter(Boolean).map((item, idx, arr) => (
-                <span key={idx}>
-                  {item}{idx < arr.length - 1 && <span className="mx-1.5 text-slate-300">&middot;</span>}
-                </span>
-              ))}
-              {detail.website && (
-                <>
-                  <span className="mx-1.5 text-slate-300">&middot;</span>
-                  <a
-                    href={detail.website.startsWith("http") ? detail.website : `https://${detail.website}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-indigo-500 hover:text-indigo-700 transition-colors"
-                  >
-                    {detail.website.replace(/^https?:\/\//, "")}
-                  </a>
-                </>
-              )}
+            {/* Single info line: status dot + CBE | address | website | NACE */}
+            <div className="mt-0.5 flex flex-wrap items-center text-xs text-slate-400">
+              {(() => {
+                const parts: React.ReactNode[] = [];
+                // CBE with status dot
+                parts.push(
+                  <span key="cbe" className="inline-flex items-center gap-1.5">
+                    <span className={`inline-block h-1.5 w-1.5 rounded-full ${detail.status === "AC" ? "bg-emerald-500" : "bg-red-400"}`} />
+                    <span className="font-mono">CBE {fmtCbe(cbe)}</span>
+                  </span>
+                );
+                if (address) parts.push(<span key="addr">{address}</span>);
+                // Website as clickable link
+                if (detail.website) {
+                  parts.push(
+                    <a
+                      key="web"
+                      href={detail.website.startsWith("http") ? detail.website : `https://${detail.website}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-indigo-500 hover:text-indigo-700 transition-colors"
+                    >
+                      {detail.website.replace(/^https?:\/\//, "")}
+                    </a>
+                  );
+                }
+                if (detail.nace_code) {
+                  parts.push(
+                    <span key="nace">
+                      NACE {detail.nace_code}{detail.nace_label && detail.nace_label !== detail.nace_code ? ` — ${detail.nace_label}` : ""}
+                    </span>
+                  );
+                }
+                return parts.map((part, idx) => (
+                  <span key={idx} className="inline-flex items-center">
+                    {part}
+                    {idx < parts.length - 1 && <span className="mx-1.5 text-slate-300">|</span>}
+                  </span>
+                ));
+              })()}
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
@@ -743,27 +751,31 @@ export default function CompanyDetailPage(props: {
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        {currentAdmins.slice(0, 6).map((a, i) => (
-                          <div key={`${a.name}-${i}`} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
-                            <div className="h-8 w-8 rounded-full bg-indigo-50 flex items-center justify-center text-[10px] font-bold text-indigo-600 shrink-0">
-                              {(a.name || "?").slice(0, 2).toUpperCase()}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="text-sm text-slate-800 font-medium truncate">{a.name}</div>
-                              <div className="flex items-center gap-2 text-[10px] text-slate-400">
-                                <span>{a.role_label || a.role || "—"}</span>
+                        {currentAdmins.slice(0, 6).map((a, i) => {
+                          function shortDate(d: string | null): string {
+                            if (!d) return "";
+                            const date = new Date(d);
+                            return date.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+                          }
+                          return (
+                            <div key={`${a.name}-${i}`} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
+                              <div className="h-8 w-8 rounded-full bg-indigo-50 flex items-center justify-center text-[10px] font-bold text-indigo-600 shrink-0">
+                                {(a.name || "?").slice(0, 2).toUpperCase()}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="text-sm text-slate-800 font-medium truncate">{a.name}</div>
+                                <div className="text-[10px] text-slate-400">
+                                  {a.role_label || a.role || "—"}
+                                </div>
                                 {a.mandate_start && (
-                                  <>
-                                    <span className="text-slate-200">·</span>
-                                    <span className="flex items-center gap-0.5">
-                                      <Calendar className="h-2.5 w-2.5" /> Since {a.mandate_start}
-                                    </span>
-                                  </>
+                                  <div className="text-[10px] text-slate-400">
+                                    Since {shortDate(a.mandate_start)}
+                                  </div>
                                 )}
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                         {currentAdmins.length > 6 && (
                           <button type="button" onClick={() => setActiveTab("administrators")} className="w-full text-center text-[10px] text-indigo-500 hover:text-indigo-700 py-1 font-medium">
                             + {currentAdmins.length - 6} more people →
@@ -1966,13 +1978,13 @@ export default function CompanyDetailPage(props: {
             }
 
             const metricCards = [
-              { label: "Net Debt / EBITDA", value: fmtRatio(latest.netDebtEbitda), colorFn: leverageColor, raw: latest.netDebtEbitda },
-              { label: "Debt / Equity", value: fmtRatio(latest.debtEquity), colorFn: debtEquityColor, raw: latest.debtEquity },
-              { label: "Equity Ratio", value: fmtRatio(latest.equityRatio, "%"), colorFn: equityRatioColor, raw: latest.equityRatio },
-              { label: "Interest Coverage", value: fmtRatio(latest.interestCoverage), colorFn: coverageColor, raw: latest.interestCoverage },
-              { label: "Cash / ST Debt", value: fmtRatio(latest.cashStDebt), colorFn: cashRatioColor, raw: latest.cashStDebt },
-              { label: "EBITDA Margin", value: fmtRatio(latest.ebitdaMargin, "%"), colorFn: marginColor, raw: latest.ebitdaMargin },
-              { label: "ROE", value: fmtRatio(latest.roe, "%"), colorFn: roeColor, raw: latest.roe },
+              { label: "Net Debt / EBITDA", value: fmtRatio(latest.netDebtEbitda), colorFn: leverageColor, raw: latest.netDebtEbitda, title: "Net Debt / EBITDA = (LT Financial Debt + ST Financial Debt - Cash - Investments) / EBITDA" },
+              { label: "Debt / Equity", value: fmtRatio(latest.debtEquity), colorFn: debtEquityColor, raw: latest.debtEquity, title: "Debt / Equity = (LT Financial Debt + ST Financial Debt) / Total Equity" },
+              { label: "Equity Ratio", value: fmtRatio(latest.equityRatio, "%"), colorFn: equityRatioColor, raw: latest.equityRatio, title: "Equity Ratio = Total Equity / Total Assets \u00d7 100%" },
+              { label: "Interest Coverage", value: fmtRatio(latest.interestCoverage), colorFn: coverageColor, raw: latest.interestCoverage, title: "Interest Coverage = EBIT / Financial Charges" },
+              { label: "Cash / ST Debt", value: fmtRatio(latest.cashStDebt), colorFn: cashRatioColor, raw: latest.cashStDebt, title: "Cash / ST Debt = (Cash + Investments) / Short-term Financial Debt" },
+              { label: "EBITDA Margin", value: fmtRatio(latest.ebitdaMargin, "%"), colorFn: marginColor, raw: latest.ebitdaMargin, title: "EBITDA Margin = EBITDA / Revenue \u00d7 100%" },
+              { label: "ROE", value: fmtRatio(latest.roe, "%"), colorFn: roeColor, raw: latest.roe, title: "ROE = Net Profit / Total Equity \u00d7 100%" },
             ];
 
             return (
@@ -1986,7 +1998,8 @@ export default function CompanyDetailPage(props: {
                     {metricCards.map((m) => (
                       <div
                         key={m.label}
-                        className={`rounded-lg border p-3 text-center ${m.colorFn(m.raw)}`}
+                        title={m.title}
+                        className={`rounded-lg border p-3 text-center cursor-default ${m.colorFn(m.raw)}`}
                       >
                         <div className="text-[10px] font-medium uppercase tracking-wider opacity-70">{m.label}</div>
                         <div className="mt-1 text-lg font-bold">{m.value}</div>
@@ -2011,31 +2024,31 @@ export default function CompanyDetailPage(props: {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        <TableRow>
+                        <TableRow title="(LT Fin Debt + ST Fin Debt - Cash - Investments) / EBITDA">
                           <TableCell className="text-xs text-slate-600 py-1">Net Debt / EBITDA</TableCell>
                           {ratios.map((r) => (
                             <TableCell key={r.fiscal_year} className="text-right font-mono text-xs py-1">{fmtRatio(r.netDebtEbitda)}</TableCell>
                           ))}
                         </TableRow>
-                        <TableRow>
+                        <TableRow title="(LT Fin Debt + ST Fin Debt) / Equity">
                           <TableCell className="text-xs text-slate-600 py-1">Debt / Equity</TableCell>
                           {ratios.map((r) => (
                             <TableCell key={r.fiscal_year} className="text-right font-mono text-xs py-1">{fmtRatio(r.debtEquity)}</TableCell>
                           ))}
                         </TableRow>
-                        <TableRow className="bg-slate-50/50">
+                        <TableRow className="bg-slate-50/50" title="Equity / Total Assets × 100">
                           <TableCell className="text-xs text-slate-600 py-1 font-medium">Equity Ratio (Equity / Assets)</TableCell>
                           {ratios.map((r) => (
                             <TableCell key={r.fiscal_year} className={`text-right font-mono text-xs py-1 font-medium ${r.equityRatio != null && r.equityRatio >= 40 ? "text-green-700" : r.equityRatio != null && r.equityRatio >= 20 ? "text-amber-700" : r.equityRatio != null ? "text-red-700" : ""}`}>{fmtRatio(r.equityRatio, "%")}</TableCell>
                           ))}
                         </TableRow>
-                        <TableRow>
+                        <TableRow title="EBIT / |Financial Charges|">
                           <TableCell className="text-xs text-slate-600 py-1">Interest Coverage</TableCell>
                           {ratios.map((r) => (
                             <TableCell key={r.fiscal_year} className="text-right font-mono text-xs py-1">{fmtRatio(r.interestCoverage)}</TableCell>
                           ))}
                         </TableRow>
-                        <TableRow>
+                        <TableRow title="LT Fin Debt + ST Fin Debt - Cash - Investments">
                           <TableCell className="text-xs text-slate-600 py-1">Net Debt</TableCell>
                           {ratios.map((r) => (
                             <TableCell key={r.fiscal_year} className="text-right font-mono text-xs py-1">{fmtEur(r.netDebt)}</TableCell>
@@ -2062,13 +2075,13 @@ export default function CompanyDetailPage(props: {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        <TableRow>
+                        <TableRow title="(Cash + Investments) / Short-term Financial Debt">
                           <TableCell className="text-xs text-slate-600 py-1">Cash / ST Debt</TableCell>
                           {ratios.map((r) => (
                             <TableCell key={r.fiscal_year} className="text-right font-mono text-xs py-1">{fmtRatio(r.cashStDebt)}</TableCell>
                           ))}
                         </TableRow>
-                        <TableRow>
+                        <TableRow title="Cash + Current Investments">
                           <TableCell className="text-xs text-slate-600 py-1">Cash & Investments</TableCell>
                           {sorted.map((row) => (
                             <TableCell key={row.fiscal_year} className="text-right font-mono text-xs py-1">
@@ -2103,13 +2116,13 @@ export default function CompanyDetailPage(props: {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        <TableRow>
+                        <TableRow title="EBITDA / Revenue × 100">
                           <TableCell className="text-xs text-slate-600 py-1">EBITDA Margin</TableCell>
                           {ratios.map((r) => (
                             <TableCell key={r.fiscal_year} className="text-right font-mono text-xs py-1">{fmtRatio(r.ebitdaMargin, "%")}</TableCell>
                           ))}
                         </TableRow>
-                        <TableRow>
+                        <TableRow title="Net Profit / Total Equity × 100">
                           <TableCell className="text-xs text-slate-600 py-1">ROE</TableCell>
                           {ratios.map((r) => (
                             <TableCell key={r.fiscal_year} className="text-right font-mono text-xs py-1">{fmtRatio(r.roe, "%")}</TableCell>
@@ -2136,19 +2149,19 @@ export default function CompanyDetailPage(props: {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        <TableRow>
+                        <TableRow title="Trade Receivables / Revenue × 365">
                           <TableCell className="text-xs text-slate-600 py-1">DSO (days)</TableCell>
                           {ratios.map((r) => (
                             <TableCell key={r.fiscal_year} className="text-right font-mono text-xs py-1">{fmtDays(r.dso)}</TableCell>
                           ))}
                         </TableRow>
-                        <TableRow>
+                        <TableRow title="Trade Payables / Revenue × 365">
                           <TableCell className="text-xs text-slate-600 py-1">DPO (days)</TableCell>
                           {ratios.map((r) => (
                             <TableCell key={r.fiscal_year} className="text-right font-mono text-xs py-1">{fmtDays(r.dpo)}</TableCell>
                           ))}
                         </TableRow>
-                        <TableRow>
+                        <TableRow title="DSO - DPO (lower is better)">
                           <TableCell className="text-xs text-slate-600 py-1">Cash Conversion (DSO - DPO)</TableCell>
                           {ratios.map((r) => {
                             const ccc = r.dso != null && r.dpo != null ? r.dso - r.dpo : null;
