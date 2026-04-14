@@ -315,11 +315,12 @@ function renderDelta(current: number | null, previous: number | null): React.Rea
   const abs = current - previous;
   const pct = (abs / Math.abs(previous)) * 100;
   const sign = abs >= 0 ? "+" : "";
-  const color = abs >= 0 ? "text-emerald-300/80" : "text-rose-300/80";
+  const color = abs >= 0 ? "text-emerald-600" : "text-rose-500";
+  const arrow = abs >= 0 ? "▲" : "▼";
   return (
-    <div className={`${color} leading-snug`}>
-      <div className="text-[9px] font-mono">{sign}{fmtEur(abs)}</div>
-      <div className="text-[8px]">{sign}{pct.toFixed(1)}%</div>
+    <div className={`${color} leading-tight`}>
+      <div className="text-[10px] font-mono">{sign}{fmtEur(abs)}</div>
+      <div className="text-[9px] font-medium">{arrow} {sign}{pct.toFixed(1)}%</div>
     </div>
   );
 }
@@ -335,7 +336,7 @@ function renderDeltaHeaders(years: number[]): React.ReactNode[] {
     );
     if (i < years.length - 1) {
       headers.push(
-        <th key={`d-${years[i]}`} className="px-1 py-2 text-center text-slate-300 font-normal w-[50px] text-[8px]">
+        <th key={`d-${years[i]}`} className="px-1 py-2 text-center text-slate-400 font-normal w-[70px] text-[9px]">
           Δ
         </th>
       );
