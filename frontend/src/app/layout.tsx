@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import Link from "next/link";
 import Nav from "@/components/nav";
 import BrandSurvey from "@/components/brand-survey";
+import CookieBanner from "@/components/cookie-banner";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -25,9 +27,17 @@ export default function RootLayout({
           </div>
         </main>
         <BrandSurvey />
+        <CookieBanner />
         <footer className="border-t border-slate-200 bg-white py-4 mt-auto">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-slate-400">
-            Data sources: KBO/BCE (Kruispuntbank van Ondernemingen) · NBB/BNB (Nationale Bank van België) · Belgisch Staatsblad
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-slate-400 space-y-1">
+            <div>
+              Data sources: KBO/BCE (Kruispuntbank van Ondernemingen) · NBB/BNB (Nationale Bank van België) · Belgisch Staatsblad
+            </div>
+            <div className="flex items-center justify-center gap-1.5">
+              <Link href="/privacy" className="hover:text-slate-600 hover:underline">Privacy Policy</Link>
+              <span>|</span>
+              <Link href="/terms" className="hover:text-slate-600 hover:underline">Terms of Use</Link>
+            </div>
           </div>
         </footer>
       </body>

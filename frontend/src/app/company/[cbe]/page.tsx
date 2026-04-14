@@ -41,6 +41,7 @@ import {
   GitBranch,
   FileText,
   Download,
+  Shield,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 
@@ -95,6 +96,7 @@ interface FinancialRow {
   trade_receivables: number | null;
   trade_payables: number | null;
   financial_charges: number | null;
+  current_investments: number | null;
   fte_total: number | null;
   personnel_costs: number | null;
   ebitda_margin_pct: number | null;
@@ -152,6 +154,66 @@ function cleanCbe(id: string | null): string | null {
   const c = id.replace(/\./g, "").replace(/ /g, "").trim();
   return /^\d{10}$/.test(c) ? c : null;
 }
+
+/* ---------- publication type mapping ---------- */
+
+const PUB_TYPE_MAP: Record<string, { label: string; color: string; summary: string }> = {
+  "ONTSLAGEN - BENOEMINGEN": {
+    label: "Board",
+    color: "bg-blue-100 text-blue-700",
+    summary: "Board changes: resignations and appointments",
+  },
+  "OPRICHTING": {
+    label: "Formation",
+    color: "bg-green-100 text-green-700",
+    summary: "Company formation / incorporation",
+  },
+  "STATUTENWIJZIGING": {
+    label: "Statutes",
+    color: "bg-purple-100 text-purple-700",
+    summary: "Amendment of articles of association",
+  },
+  "ONTBINDING": {
+    label: "Dissolution",
+    color: "bg-red-100 text-red-700",
+    summary: "Dissolution",
+  },
+  "VEREFFENING": {
+    label: "Liquidation",
+    color: "bg-red-100 text-red-700",
+    summary: "Liquidation",
+  },
+  "FUSIE": {
+    label: "Merger",
+    color: "bg-amber-100 text-amber-700",
+    summary: "Merger",
+  },
+  "SPLITSING": {
+    label: "Demerger",
+    color: "bg-amber-100 text-amber-700",
+    summary: "Demerger / split",
+  },
+  "ZETELVERPLAATSING": {
+    label: "Relocation",
+    color: "bg-cyan-100 text-cyan-700",
+    summary: "Registered office relocation",
+  },
+  "KAPITAALVERHOGING": {
+    label: "Cap. increase",
+    color: "bg-emerald-100 text-emerald-700",
+    summary: "Capital increase",
+  },
+  "KAPITAALVERMINDERING": {
+    label: "Cap. decrease",
+    color: "bg-orange-100 text-orange-700",
+    summary: "Capital decrease",
+  },
+  "JAARREKENING": {
+    label: "Accounts",
+    color: "bg-slate-100 text-slate-600",
+    summary: "Annual accounts filing",
+  },
+};
 
 /* ---------- skeleton ---------- */
 
@@ -406,6 +468,10 @@ export default function CompanyDetailPage(props: {
             <GitBranch className="w-4 h-4 mr-1.5" />
             Network
           </TabsTrigger>
+          <TabsTrigger value="credit">
+            <Shield className="w-4 h-4 mr-1.5" />
+            Credit
+          </TabsTrigger>
           <TabsTrigger value="publications">
             <FileText className="w-4 h-4 mr-1.5" />
             Publications
@@ -534,6 +600,170 @@ export default function CompanyDetailPage(props: {
                   </CardContent>
                 </Card>
               )}
+
+              {/* ===== Balance Sheet ===== */}
+              <div className="mt-6">
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500 border-l-[3px] border-indigo-500 pl-2">
+                  Balance Sheet
+                </h3>
+                <div className="rounded-lg border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-slate-50">
+                        <TableHead className="text-xs min-w-[160px]">Line Item</TableHead>
+                        {[...financials.summary]
+                          .sort((a, b) => b.fiscal_year - a.fiscal_year)
+                          .map((row) => (
+                            <TableHead key={row.fiscal_year} className="text-right text-xs min-w-[100px]">
+                              FY{row.fiscal_year}
+                            </TableHead>
+                          ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {/* Assets header */}
+                      <TableRow className="bg-slate-50/50">
+                        <TableCell className="text-xs font-bold text-slate-700 py-1" colSpan={financials.summary.length + 1}>
+                          Assets
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell className="text-xs text-slate-600 py-1">Fixed Assets</TableCell>
+                        {[...financials.summary].sort((a, b) => b.fiscal_year - a.fiscal_year).map((row) => (
+                          <TableCell key={row.fiscal_year} className="text-right font-mono text-xs py-1">{fmtEur(row.fixed_assets)}</TableCell>
+                        ))}
+                      </TableRow>
+                      <TableRow>
+                        <TableCell className="text-xs text-slate-600 py-1">Inventories</TableCell>
+                        {[...financials.summary].sort((a, b) => b.fiscal_year - a.fiscal_year).map((row) => (
+                          <TableCell key={row.fiscal_year} className="text-right font-mono text-xs py-1">{fmtEur(row.inventories)}</TableCell>
+                        ))}
+                      </TableRow>
+                      <TableRow>
+                        <TableCell className="text-xs text-slate-600 py-1">Trade Receivables</TableCell>
+                        {[...financials.summary].sort((a, b) => b.fiscal_year - a.fiscal_year).map((row) => (
+                          <TableCell key={row.fiscal_year} className="text-right font-mono text-xs py-1">{fmtEur(row.trade_receivables)}</TableCell>
+                        ))}
+                      </TableRow>
+                      <TableRow>
+                        <TableCell className="text-xs text-slate-600 py-1">Cash & Investments</TableCell>
+                        {[...financials.summary].sort((a, b) => b.fiscal_year - a.fiscal_year).map((row) => (
+                          <TableCell key={row.fiscal_year} className="text-right font-mono text-xs py-1">
+                            {fmtEur(((row.cash ?? 0) + (row.current_investments ?? 0)) || null)}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                      <TableRow className="border-t-2 border-slate-300">
+                        <TableCell className="text-xs font-bold text-slate-800 py-1">Total Assets</TableCell>
+                        {[...financials.summary].sort((a, b) => b.fiscal_year - a.fiscal_year).map((row) => (
+                          <TableCell key={row.fiscal_year} className="text-right font-mono text-xs font-bold py-1">{fmtEur(row.total_assets)}</TableCell>
+                        ))}
+                      </TableRow>
+                      {/* Liabilities & Equity header */}
+                      <TableRow className="bg-slate-50/50">
+                        <TableCell className="text-xs font-bold text-slate-700 py-1" colSpan={financials.summary.length + 1}>
+                          Liabilities & Equity
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell className="text-xs text-slate-600 py-1">Equity</TableCell>
+                        {[...financials.summary].sort((a, b) => b.fiscal_year - a.fiscal_year).map((row) => (
+                          <TableCell key={row.fiscal_year} className="text-right font-mono text-xs py-1">{fmtEur(row.equity)}</TableCell>
+                        ))}
+                      </TableRow>
+                      <TableRow>
+                        <TableCell className="text-xs text-slate-600 py-1">LT Financial Debt</TableCell>
+                        {[...financials.summary].sort((a, b) => b.fiscal_year - a.fiscal_year).map((row) => (
+                          <TableCell key={row.fiscal_year} className="text-right font-mono text-xs py-1">{fmtEur(row.lt_financial_debt)}</TableCell>
+                        ))}
+                      </TableRow>
+                      <TableRow>
+                        <TableCell className="text-xs text-slate-600 py-1">ST Financial Debt</TableCell>
+                        {[...financials.summary].sort((a, b) => b.fiscal_year - a.fiscal_year).map((row) => (
+                          <TableCell key={row.fiscal_year} className="text-right font-mono text-xs py-1">{fmtEur(row.st_financial_debt)}</TableCell>
+                        ))}
+                      </TableRow>
+                      <TableRow>
+                        <TableCell className="text-xs text-slate-600 py-1">Trade Payables</TableCell>
+                        {[...financials.summary].sort((a, b) => b.fiscal_year - a.fiscal_year).map((row) => (
+                          <TableCell key={row.fiscal_year} className="text-right font-mono text-xs py-1">{fmtEur(row.trade_payables)}</TableCell>
+                        ))}
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+
+              {/* ===== Derived Cash Flow ===== */}
+              {financials.summary.length >= 2 && (() => {
+                const sorted = [...financials.summary].sort((a, b) => b.fiscal_year - a.fiscal_year);
+                const cashFlowRows = sorted.slice(0, -1).map((row, idx) => {
+                  const prev = sorted[idx + 1];
+                  const netDebtCurr = ((row.lt_financial_debt ?? 0) + (row.st_financial_debt ?? 0)) - (row.cash ?? 0);
+                  const netDebtPrev = ((prev.lt_financial_debt ?? 0) + (prev.st_financial_debt ?? 0)) - (prev.cash ?? 0);
+                  const capex = (row.fixed_assets ?? 0) - (prev.fixed_assets ?? 0) + Math.abs(row.da ?? 0);
+                  const wcCurr = (row.inventories ?? 0) + (row.trade_receivables ?? 0) - (row.trade_payables ?? 0);
+                  const wcPrev = (prev.inventories ?? 0) + (prev.trade_receivables ?? 0) - (prev.trade_payables ?? 0);
+                  const wcChange = wcCurr - wcPrev;
+                  return {
+                    fiscal_year: row.fiscal_year,
+                    ebitda: row.ebitda,
+                    wc_change: wcChange !== 0 ? wcChange : null,
+                    capex: capex !== 0 ? -Math.abs(capex) : null,
+                    net_debt_change: netDebtCurr - netDebtPrev !== 0 ? netDebtCurr - netDebtPrev : null,
+                  };
+                });
+                return (
+                  <div className="mt-6">
+                    <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500 border-l-[3px] border-cyan-500 pl-2">
+                      Derived Cash Flow
+                    </h3>
+                    <div className="rounded-lg border overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-slate-50">
+                            <TableHead className="text-xs min-w-[160px]">Line Item</TableHead>
+                            {cashFlowRows.map((r) => (
+                              <TableHead key={r.fiscal_year} className="text-right text-xs min-w-[100px]">
+                                FY{r.fiscal_year}
+                              </TableHead>
+                            ))}
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          <TableRow>
+                            <TableCell className="text-xs text-slate-600 py-1">EBITDA</TableCell>
+                            {cashFlowRows.map((r) => (
+                              <TableCell key={r.fiscal_year} className="text-right font-mono text-xs py-1">{fmtEur(r.ebitda)}</TableCell>
+                            ))}
+                          </TableRow>
+                          <TableRow>
+                            <TableCell className="text-xs text-slate-600 py-1">Change in Working Capital</TableCell>
+                            {cashFlowRows.map((r) => (
+                              <TableCell key={r.fiscal_year} className="text-right font-mono text-xs py-1">{fmtEur(r.wc_change)}</TableCell>
+                            ))}
+                          </TableRow>
+                          <TableRow>
+                            <TableCell className="text-xs text-slate-600 py-1">CapEx (est.)</TableCell>
+                            {cashFlowRows.map((r) => (
+                              <TableCell key={r.fiscal_year} className="text-right font-mono text-xs py-1">{fmtEur(r.capex)}</TableCell>
+                            ))}
+                          </TableRow>
+                          <TableRow className="border-t-2 border-slate-300">
+                            <TableCell className="text-xs font-bold text-slate-800 py-1">Net Debt Change</TableCell>
+                            {cashFlowRows.map((r) => (
+                              <TableCell key={r.fiscal_year} className="text-right font-mono text-xs font-bold py-1">{fmtEur(r.net_debt_change)}</TableCell>
+                            ))}
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </div>
+                    <p className="mt-1 text-[10px] text-slate-400 italic">
+                      CapEx estimated as change in fixed assets + D&A. Working capital = inventories + trade receivables - trade payables.
+                    </p>
+                  </div>
+                );
+              })()}
             </>
           )}
         </TabsContent>
@@ -898,6 +1128,299 @@ export default function CompanyDetailPage(props: {
           <NetworkGraph cbe={cbe} companyName={detail?.name || cbe} />
         </TabsContent>
 
+        {/* ===== Credit Analysis tab ===== */}
+        <TabsContent value="credit" className="mt-3">
+          {!financials || financials.summary.length === 0 ? (
+            <p className="py-8 text-center text-sm text-slate-500">
+              No financial data available for credit analysis.
+            </p>
+          ) : (() => {
+            const sorted = [...financials.summary].sort((a, b) => b.fiscal_year - a.fiscal_year);
+
+            // Compute ratios for each year
+            const ratios = sorted.map((row) => {
+              const grossDebt = (row.lt_financial_debt ?? 0) + (row.st_financial_debt ?? 0);
+              const netDebt = grossDebt - (row.cash ?? 0) - (row.current_investments ?? 0);
+              const ebitda = row.ebitda;
+              const ebit = row.ebit;
+              const equity = row.equity;
+              const netProfit = row.net_profit;
+              const revenue = row.revenue;
+              const finCharges = row.financial_charges;
+              const tradeRec = row.trade_receivables;
+              const tradePay = row.trade_payables;
+              const stDebt = row.st_financial_debt;
+
+              const netDebtEbitda = ebitda && ebitda !== 0 ? netDebt / ebitda : null;
+              const debtEquity = equity && equity !== 0 ? grossDebt / equity : null;
+              const interestCoverage = finCharges && finCharges !== 0 ? (ebit ?? 0) / Math.abs(finCharges) : null;
+              const cashStDebt = stDebt && stDebt !== 0 ? ((row.cash ?? 0) + (row.current_investments ?? 0)) / stDebt : null;
+              const roe = equity && equity !== 0 ? ((netProfit ?? 0) / equity) * 100 : null;
+              const ebitdaMargin = revenue && revenue > 0 ? ((ebitda ?? 0) / revenue) * 100 : null;
+              const dso = revenue && revenue > 0 ? ((tradeRec ?? 0) / revenue) * 365 : null;
+              const dpo = revenue && revenue > 0 ? ((tradePay ?? 0) / revenue) * 365 : null;
+
+              return {
+                fiscal_year: row.fiscal_year,
+                netDebtEbitda,
+                debtEquity,
+                interestCoverage,
+                cashStDebt,
+                roe,
+                ebitdaMargin,
+                dso,
+                dpo,
+                netDebt,
+                grossDebt,
+              };
+            });
+
+            const latest = ratios[0];
+
+            // Color thresholds
+            function leverageColor(v: number | null): string {
+              if (v == null) return "bg-slate-50 border-slate-200 text-slate-600";
+              if (v < 3) return "bg-green-50 border-green-200 text-green-800";
+              if (v <= 5) return "bg-amber-50 border-amber-200 text-amber-800";
+              return "bg-red-50 border-red-200 text-red-800";
+            }
+            function debtEquityColor(v: number | null): string {
+              if (v == null) return "bg-slate-50 border-slate-200 text-slate-600";
+              if (v < 1) return "bg-green-50 border-green-200 text-green-800";
+              if (v <= 2) return "bg-amber-50 border-amber-200 text-amber-800";
+              return "bg-red-50 border-red-200 text-red-800";
+            }
+            function coverageColor(v: number | null): string {
+              if (v == null) return "bg-slate-50 border-slate-200 text-slate-600";
+              if (v >= 3) return "bg-green-50 border-green-200 text-green-800";
+              if (v >= 1.5) return "bg-amber-50 border-amber-200 text-amber-800";
+              return "bg-red-50 border-red-200 text-red-800";
+            }
+            function cashRatioColor(v: number | null): string {
+              if (v == null) return "bg-slate-50 border-slate-200 text-slate-600";
+              if (v >= 1) return "bg-green-50 border-green-200 text-green-800";
+              if (v >= 0.5) return "bg-amber-50 border-amber-200 text-amber-800";
+              return "bg-red-50 border-red-200 text-red-800";
+            }
+            function marginColor(v: number | null): string {
+              if (v == null) return "bg-slate-50 border-slate-200 text-slate-600";
+              if (v >= 15) return "bg-green-50 border-green-200 text-green-800";
+              if (v >= 8) return "bg-amber-50 border-amber-200 text-amber-800";
+              return "bg-red-50 border-red-200 text-red-800";
+            }
+            function roeColor(v: number | null): string {
+              if (v == null) return "bg-slate-50 border-slate-200 text-slate-600";
+              if (v >= 15) return "bg-green-50 border-green-200 text-green-800";
+              if (v >= 8) return "bg-amber-50 border-amber-200 text-amber-800";
+              return "bg-red-50 border-red-200 text-red-800";
+            }
+            function fmtRatio(v: number | null, suffix = "x"): string {
+              if (v == null || !isFinite(v)) return "\u2014";
+              return `${v.toFixed(1)}${suffix}`;
+            }
+            function fmtDays(v: number | null): string {
+              if (v == null || !isFinite(v)) return "\u2014";
+              return `${Math.round(v)}d`;
+            }
+
+            const metricCards = [
+              { label: "Net Debt / EBITDA", value: fmtRatio(latest.netDebtEbitda), colorFn: leverageColor, raw: latest.netDebtEbitda },
+              { label: "Debt / Equity", value: fmtRatio(latest.debtEquity), colorFn: debtEquityColor, raw: latest.debtEquity },
+              { label: "Interest Coverage", value: fmtRatio(latest.interestCoverage), colorFn: coverageColor, raw: latest.interestCoverage },
+              { label: "Cash / ST Debt", value: fmtRatio(latest.cashStDebt), colorFn: cashRatioColor, raw: latest.cashStDebt },
+              { label: "EBITDA Margin", value: fmtRatio(latest.ebitdaMargin, "%"), colorFn: marginColor, raw: latest.ebitdaMargin },
+              { label: "ROE", value: fmtRatio(latest.roe, "%"), colorFn: roeColor, raw: latest.roe },
+            ];
+
+            return (
+              <div className="space-y-6">
+                {/* Key Metrics Cards */}
+                <div>
+                  <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500 border-l-[3px] border-purple-500 pl-2">
+                    Key Ratios (FY{latest.fiscal_year})
+                  </h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                    {metricCards.map((m) => (
+                      <div
+                        key={m.label}
+                        className={`rounded-lg border p-3 text-center ${m.colorFn(m.raw)}`}
+                      >
+                        <div className="text-[10px] font-medium uppercase tracking-wider opacity-70">{m.label}</div>
+                        <div className="mt-1 text-lg font-bold">{m.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Leverage Ratios Table */}
+                <div>
+                  <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500 border-l-[3px] border-red-500 pl-2">
+                    Leverage
+                  </h3>
+                  <div className="rounded-lg border overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-slate-50">
+                          <TableHead className="text-xs min-w-[160px]">Metric</TableHead>
+                          {ratios.map((r) => (
+                            <TableHead key={r.fiscal_year} className="text-right text-xs min-w-[90px]">FY{r.fiscal_year}</TableHead>
+                          ))}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        <TableRow>
+                          <TableCell className="text-xs text-slate-600 py-1">Net Debt / EBITDA</TableCell>
+                          {ratios.map((r) => (
+                            <TableCell key={r.fiscal_year} className="text-right font-mono text-xs py-1">{fmtRatio(r.netDebtEbitda)}</TableCell>
+                          ))}
+                        </TableRow>
+                        <TableRow>
+                          <TableCell className="text-xs text-slate-600 py-1">Debt / Equity</TableCell>
+                          {ratios.map((r) => (
+                            <TableCell key={r.fiscal_year} className="text-right font-mono text-xs py-1">{fmtRatio(r.debtEquity)}</TableCell>
+                          ))}
+                        </TableRow>
+                        <TableRow>
+                          <TableCell className="text-xs text-slate-600 py-1">Interest Coverage</TableCell>
+                          {ratios.map((r) => (
+                            <TableCell key={r.fiscal_year} className="text-right font-mono text-xs py-1">{fmtRatio(r.interestCoverage)}</TableCell>
+                          ))}
+                        </TableRow>
+                        <TableRow>
+                          <TableCell className="text-xs text-slate-600 py-1">Net Debt</TableCell>
+                          {ratios.map((r) => (
+                            <TableCell key={r.fiscal_year} className="text-right font-mono text-xs py-1">{fmtEur(r.netDebt)}</TableCell>
+                          ))}
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+
+                {/* Liquidity */}
+                <div>
+                  <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500 border-l-[3px] border-amber-500 pl-2">
+                    Liquidity
+                  </h3>
+                  <div className="rounded-lg border overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-slate-50">
+                          <TableHead className="text-xs min-w-[160px]">Metric</TableHead>
+                          {ratios.map((r) => (
+                            <TableHead key={r.fiscal_year} className="text-right text-xs min-w-[90px]">FY{r.fiscal_year}</TableHead>
+                          ))}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        <TableRow>
+                          <TableCell className="text-xs text-slate-600 py-1">Cash / ST Debt</TableCell>
+                          {ratios.map((r) => (
+                            <TableCell key={r.fiscal_year} className="text-right font-mono text-xs py-1">{fmtRatio(r.cashStDebt)}</TableCell>
+                          ))}
+                        </TableRow>
+                        <TableRow>
+                          <TableCell className="text-xs text-slate-600 py-1">Cash & Investments</TableCell>
+                          {sorted.map((row) => (
+                            <TableCell key={row.fiscal_year} className="text-right font-mono text-xs py-1">
+                              {fmtEur(((row.cash ?? 0) + (row.current_investments ?? 0)) || null)}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                        <TableRow>
+                          <TableCell className="text-xs text-slate-600 py-1">ST Financial Debt</TableCell>
+                          {sorted.map((row) => (
+                            <TableCell key={row.fiscal_year} className="text-right font-mono text-xs py-1">{fmtEur(row.st_financial_debt)}</TableCell>
+                          ))}
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+
+                {/* Profitability */}
+                <div>
+                  <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500 border-l-[3px] border-green-500 pl-2">
+                    Profitability
+                  </h3>
+                  <div className="rounded-lg border overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-slate-50">
+                          <TableHead className="text-xs min-w-[160px]">Metric</TableHead>
+                          {ratios.map((r) => (
+                            <TableHead key={r.fiscal_year} className="text-right text-xs min-w-[90px]">FY{r.fiscal_year}</TableHead>
+                          ))}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        <TableRow>
+                          <TableCell className="text-xs text-slate-600 py-1">EBITDA Margin</TableCell>
+                          {ratios.map((r) => (
+                            <TableCell key={r.fiscal_year} className="text-right font-mono text-xs py-1">{fmtRatio(r.ebitdaMargin, "%")}</TableCell>
+                          ))}
+                        </TableRow>
+                        <TableRow>
+                          <TableCell className="text-xs text-slate-600 py-1">ROE</TableCell>
+                          {ratios.map((r) => (
+                            <TableCell key={r.fiscal_year} className="text-right font-mono text-xs py-1">{fmtRatio(r.roe, "%")}</TableCell>
+                          ))}
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+
+                {/* Working Capital */}
+                <div>
+                  <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500 border-l-[3px] border-blue-500 pl-2">
+                    Working Capital
+                  </h3>
+                  <div className="rounded-lg border overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-slate-50">
+                          <TableHead className="text-xs min-w-[160px]">Metric</TableHead>
+                          {ratios.map((r) => (
+                            <TableHead key={r.fiscal_year} className="text-right text-xs min-w-[90px]">FY{r.fiscal_year}</TableHead>
+                          ))}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        <TableRow>
+                          <TableCell className="text-xs text-slate-600 py-1">DSO (days)</TableCell>
+                          {ratios.map((r) => (
+                            <TableCell key={r.fiscal_year} className="text-right font-mono text-xs py-1">{fmtDays(r.dso)}</TableCell>
+                          ))}
+                        </TableRow>
+                        <TableRow>
+                          <TableCell className="text-xs text-slate-600 py-1">DPO (days)</TableCell>
+                          {ratios.map((r) => (
+                            <TableCell key={r.fiscal_year} className="text-right font-mono text-xs py-1">{fmtDays(r.dpo)}</TableCell>
+                          ))}
+                        </TableRow>
+                        <TableRow>
+                          <TableCell className="text-xs text-slate-600 py-1">Cash Conversion (DSO - DPO)</TableCell>
+                          {ratios.map((r) => {
+                            const ccc = r.dso != null && r.dpo != null ? r.dso - r.dpo : null;
+                            return (
+                              <TableCell key={r.fiscal_year} className="text-right font-mono text-xs py-1">{fmtDays(ccc)}</TableCell>
+                            );
+                          })}
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+
+                <p className="text-[10px] text-slate-400 italic">
+                  Thresholds: Net Debt/EBITDA &lt;3x green, 3-5x amber, &gt;5x red. Interest Coverage &gt;3x green, 1.5-3x amber, &lt;1.5x red.
+                </p>
+              </div>
+            );
+          })()}
+        </TabsContent>
+
         {/* ===== Publications tab ===== */}
         <TabsContent value="publications" className="mt-3">
           {!structure ||
@@ -906,30 +1429,49 @@ export default function CompanyDetailPage(props: {
               No Staatsblad publications available.
             </p>
           ) : (
-            <div className="rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-slate-50">
-                    <TableHead>Date</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Reference</TableHead>
-                    <TableHead className="text-right">Link</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {structure.staatsblad_publications.map((pub, i) => (
-                    <TableRow key={`${pub.pub_date}-${i}`}>
-                      <TableCell className="font-medium text-sm">
-                        {pub.pub_date}
-                      </TableCell>
-                      <TableCell className="text-sm text-slate-600">
-                        {pub.pub_type ?? "\u2014"}
-                      </TableCell>
-                      <TableCell className="text-sm text-slate-500">
-                        {pub.reference ?? "\u2014"}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {pub.pdf_url ? (
+            <div className="space-y-2">
+              {structure.staatsblad_publications.map((pub, i) => {
+                const typeInfo = pub.pub_type
+                  ? PUB_TYPE_MAP[pub.pub_type.toUpperCase()] ??
+                    Object.entries(PUB_TYPE_MAP).find(([key]) =>
+                      pub.pub_type!.toUpperCase().includes(key)
+                    )?.[1] ??
+                    null
+                  : null;
+
+                return (
+                  <Card key={`${pub.pub_date}-${i}`}>
+                    <CardContent className="p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-semibold text-slate-900">
+                              {pub.pub_date}
+                            </span>
+                            {typeInfo ? (
+                              <span
+                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${typeInfo.color}`}
+                              >
+                                {typeInfo.label}
+                              </span>
+                            ) : pub.pub_type ? (
+                              <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-slate-100 text-slate-600">
+                                {pub.pub_type}
+                              </span>
+                            ) : null}
+                          </div>
+                          <p className="mt-1 text-sm text-slate-600">
+                            {typeInfo
+                              ? typeInfo.summary
+                              : pub.pub_type ?? "Publication in the Belgian Official Gazette"}
+                          </p>
+                          {pub.reference && (
+                            <p className="mt-0.5 text-xs text-slate-400">
+                              Ref: {pub.reference}
+                            </p>
+                          )}
+                        </div>
+                        {pub.pdf_url && (
                           <a
                             href={
                               pub.pdf_url.startsWith("http")
@@ -938,18 +1480,17 @@ export default function CompanyDetailPage(props: {
                             }
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline"
+                            className="inline-flex items-center gap-1 shrink-0 rounded-md border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-100 transition-colors"
                           >
-                            PDF <ExternalLink className="h-3 w-3" />
+                            View PDF
+                            <ExternalLink className="h-3 w-3" />
                           </a>
-                        ) : (
-                          "\u2014"
                         )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </TabsContent>

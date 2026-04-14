@@ -475,7 +475,7 @@ async def get_company_financials(cbe: str):
                    revenue, ebit, da, ebitda, net_profit,
                    equity, lt_financial_debt, st_financial_debt, cash, total_assets,
                    fixed_assets, inventories, trade_receivables, trade_payables,
-                   financial_charges, fte_total, personnel_costs,
+                   financial_charges, fte_total, personnel_costs, current_investments,
                    CASE WHEN revenue > 0
                         THEN ROUND((ebitda / revenue * 100)::numeric, 1)
                    END AS "ebitda_margin_pct"

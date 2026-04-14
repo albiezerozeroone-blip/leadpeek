@@ -9,6 +9,7 @@ import {
   DialogContent,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase";
@@ -140,15 +141,18 @@ function FeedbackDialog({
 
 function DonateButton() {
   const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [customAmount, setCustomAmount] = useState("");
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
-  async function handleDonate() {
+  async function handleDonate(amountCents: number) {
+    if (amountCents < 100) return;
     setLoading(true);
     try {
       const res = await fetch(`${API_BASE}/api/stripe/donate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: 500 }),
+        body: JSON.stringify({ amount: amountCents }),
       });
       const data = await res.json();
       if (data.checkout_url) {
@@ -162,14 +166,58 @@ function DonateButton() {
   }
 
   return (
-    <button
-      onClick={handleDonate}
-      disabled={loading}
-      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-rose-600 bg-rose-50 border border-rose-200 rounded-full hover:bg-rose-100 hover:border-rose-300 transition-colors cursor-pointer"
-    >
-      <Heart className="w-3.5 h-3.5" />
-      {loading ? "..." : "Support us"}
-    </button>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger>
+        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-rose-600 bg-rose-50 border border-rose-200 rounded-full hover:bg-rose-100 hover:border-rose-300 transition-colors cursor-pointer">
+          <Heart className="w-3.5 h-3.5" />
+          Support us
+        </span>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-xs">
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">
+              Support Data Peak
+            </h2>
+            <p className="text-sm text-slate-500">
+              Help us keep improving!
+            </p>
+          </div>
+          <div className="grid grid-cols-4 gap-2">
+            {[5, 10, 25, 50].map((amt) => (
+              <button
+                key={amt}
+                onClick={() => handleDonate(amt * 100)}
+                disabled={loading}
+                className="rounded-lg border border-slate-200 bg-white px-2 py-2.5 text-sm font-semibold text-slate-700 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 transition-colors disabled:opacity-50"
+              >
+                {loading ? "..." : `\u20AC${amt}`}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <Input
+              type="number"
+              min={1}
+              placeholder="Custom \u20AC"
+              value={customAmount}
+              onChange={(e) => setCustomAmount(e.target.value)}
+              className="flex-1"
+            />
+            <Button
+              onClick={() => {
+                const val = parseFloat(customAmount);
+                if (val > 0) handleDonate(Math.round(val * 100));
+              }}
+              disabled={loading || !customAmount || parseFloat(customAmount) <= 0}
+              className="bg-rose-600 hover:bg-rose-700 text-white shrink-0"
+            >
+              {loading ? "..." : "Donate"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

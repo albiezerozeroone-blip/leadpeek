@@ -25,21 +25,20 @@ NBB_KEY = os.getenv("NBB_AUTHENTIC_KEY", "a1544461cb134035a121cf287b81c25a")
 NBB_BASE = os.getenv("NBB_BASE_URL", "https://ws.cbso.nbb.be")
 
 BATCH_SIZE = 50  # companies per batch
-DELAY = 1.5  # seconds between API calls
+DELAY = 1.0  # seconds between API calls
 
 
 def get_companies_without_data(conn, limit=500):
-    """Find companies in company_info that have 0 rows in financial_data."""
+    """Find legal-person enterprises not yet checked for NBB filings."""
     cur = conn.cursor()
     cur.execute("""
-        SELECT ci.enterprise_number
-        FROM company_info ci
-        LEFT JOIN (
-            SELECT DISTINCT enterprise_number FROM financial_data
-        ) fd ON fd.enterprise_number = ci.enterprise_number
-        LEFT JOIN nbb_load_log nl ON nl.enterprise_number = ci.enterprise_number
-        WHERE fd.enterprise_number IS NULL
-          AND (nl.enterprise_number IS NULL OR nl.deposit_key = 'NO_FILINGS')
+        SELECT e.enterprise_number
+        FROM enterprise e
+        LEFT JOIN nbb_load_log nl ON nl.enterprise_number = e.enterprise_number
+        WHERE e.type_of_enterprise = '1'
+          AND e.status = 'AC'
+          AND nl.enterprise_number IS NULL
+        ORDER BY RANDOM()
         LIMIT %s
     """, (limit,))
     return [r[0] for r in cur.fetchall()]
@@ -58,6 +57,8 @@ def fetch_references(cbe):
     )
     if resp.status_code == 200:
         return resp.json()
+    if resp.status_code in (403, 404):
+        return []  # No filings available — expected for many companies
     logger.warning("NBB references %s: HTTP %d", cbe, resp.status_code)
     return []
 

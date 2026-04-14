@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Lock } from "lucide-react";
+import Link from "next/link";
 
 type Mode = "login" | "signup" | "forgot";
 
@@ -179,6 +180,16 @@ export default function LoginPage() {
               {loading ? "Please wait..." : buttonLabels[mode]}
             </Button>
           </form>
+
+          {/* Terms notice (signup mode) */}
+          {mode === "signup" && (
+            <p className="text-center text-[11px] text-slate-400 mt-3">
+              By signing up you agree to our{" "}
+              <Link href="/terms" className="text-indigo-600 hover:underline">Terms of Use</Link>
+              {" "}and{" "}
+              <Link href="/privacy" className="text-indigo-600 hover:underline">Privacy Policy</Link>.
+            </p>
+          )}
 
           {/* Footer links */}
           <div className="text-center text-xs text-slate-500 mt-3 space-y-1.5">
