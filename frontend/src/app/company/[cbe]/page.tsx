@@ -722,8 +722,8 @@ export default function CompanyDetailPage(props: {
                   </div>
                 )}
 
-                {/* Key People + Recent Publications side by side */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Key People + Shareholders + Publications + Subsidiaries — 4 columns */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
                   {/* Key People */}
                   <div className="rounded-xl border border-slate-100 bg-white p-4">
                     <div className="flex items-baseline justify-between mb-3">
@@ -816,10 +816,6 @@ export default function CompanyDetailPage(props: {
                       </div>
                     )}
                   </div>
-                </div>
-
-                {/* Key Shareholders + Key Subsidiaries side by side */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {/* Key Shareholders */}
                   <div className="rounded-xl border border-slate-100 bg-white p-4">
                     <div className="flex items-baseline justify-between mb-3">
