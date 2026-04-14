@@ -58,6 +58,40 @@ export default function Dashboard() {
         </p>
       </div>
 
+      {/* Search section */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Link href="/company">
+          <Card className="bg-white hover:shadow-md hover:border-indigo-200 transition-all cursor-pointer group">
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100 transition-colors">
+                  <Building className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900">Search Company</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">By name or CBE number — financials, structure, filings</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/people">
+          <Card className="bg-white hover:shadow-md hover:border-indigo-200 transition-all cursor-pointer group">
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100 transition-colors">
+                  <UserSearch className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900">Search People</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">Find administrators and shareholders by name</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+      </div>
+
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {KPI_META.map((kpi) => {

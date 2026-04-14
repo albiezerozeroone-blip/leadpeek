@@ -112,12 +112,9 @@ export default function Nav() {
           {/* Brand */}
           <Link href="/" className="flex items-center gap-2.5 group">
             <img src="/logo.svg" alt="Data Peak" width={28} height={28} className="shrink-0 group-hover:scale-105 transition-transform" />
-            <div className="flex items-center gap-2">
-              <span className="text-base font-semibold text-slate-900 tracking-tight">
-                Data Peak
-              </span>
-              <span className="text-[7px] font-bold bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-full uppercase tracking-widest">Beta</span>
-            </div>
+            <span className="text-base font-semibold text-slate-900 tracking-tight">
+              Data Peak
+            </span>
           </Link>
 
           {/* Desktop nav */}

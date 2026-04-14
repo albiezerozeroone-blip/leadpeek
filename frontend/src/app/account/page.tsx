@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Mail, Calendar, CreditCard, Lock, Palette } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 
 export default function AccountPage() {
@@ -70,114 +71,135 @@ export default function AccountPage() {
 
   if (!user) return null;
 
+  const initials = user.email?.slice(0, 2).toUpperCase() ?? "?";
+  const provider = user.app_metadata?.provider || "email";
+
   return (
-    <div className="max-w-lg mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Account Settings</h1>
-        <p className="text-sm text-slate-500 mt-1">Manage your account</p>
+    <div className="max-w-3xl mx-auto space-y-6">
+      {/* Profile header */}
+      <div className="flex items-center gap-4">
+        <div className="w-14 h-14 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xl font-bold shrink-0">
+          {initials}
+        </div>
+        <div>
+          <h1 className="text-xl font-bold text-slate-900">{user.email}</h1>
+          <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
+            <span className="flex items-center gap-1">
+              <Calendar className="w-3 h-3" />
+              Joined {new Date(user.created_at).toLocaleDateString("en-GB", { month: "short", year: "numeric" })}
+            </span>
+            <span className="capitalize flex items-center gap-1">
+              <Mail className="w-3 h-3" />
+              {provider}
+            </span>
+          </div>
+        </div>
       </div>
 
-      {/* Profile info */}
-      <Card className="bg-white">
-        <CardContent className="pt-6 space-y-4">
-          <h2 className="font-semibold text-slate-900">Profile</h2>
-          <div>
-            <Label className="text-slate-500">Email</Label>
-            <p className="text-sm font-medium text-slate-900 mt-1">{user.email}</p>
-          </div>
-          <div>
-            <Label className="text-slate-500">Account created</Label>
-            <p className="text-sm font-medium text-slate-900 mt-1">
-              {new Date(user.created_at).toLocaleDateString()}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Font preference */}
-      <Card className="bg-white">
-        <CardContent className="pt-6">
-          <FontSwitcher />
-        </CardContent>
-      </Card>
-
-      {/* Subscription tier */}
-      <Card className="bg-white">
-        <CardContent className="pt-6 space-y-4">
-          <h2 className="font-semibold text-slate-900">Subscription</h2>
-          <div className="flex items-center gap-3">
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-              Free
-            </span>
-            <span className="text-sm text-slate-500">
-              Limited searches and exports
-            </span>
-          </div>
-          <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
-            <h3 className="font-semibold text-indigo-900 text-sm">Power User</h3>
-            <p className="text-sm text-indigo-700 mt-1">
-              Unlimited searches, full financial data, CSV exports, and priority support.
-            </p>
-            <button
-              disabled
-              className="mt-3 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md opacity-50 cursor-not-allowed"
-            >
-              Coming soon
-            </button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Change password */}
-      <Card className="bg-white">
-        <CardContent className="pt-6">
-          <h2 className="font-semibold text-slate-900 mb-4">Change Password</h2>
-          <form onSubmit={handleChangePassword} className="space-y-4">
-            <div>
-              <Label htmlFor="new-password">New password</Label>
-              <Input
-                id="new-password"
-                type="password"
-                placeholder="Min 6 characters"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                required
-                minLength={6}
-              />
-            </div>
-            <div>
-              <Label htmlFor="confirm-password">Confirm new password</Label>
-              <Input
-                id="confirm-password"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                minLength={6}
-              />
-            </div>
-
-            {error && (
-              <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">
-                {error}
+      {/* Two-column grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Left column */}
+        <div className="space-y-4">
+          {/* Subscription */}
+          <Card className="bg-white">
+            <CardContent className="pt-5 pb-5">
+              <div className="flex items-center gap-2 mb-3">
+                <CreditCard className="w-4 h-4 text-slate-400" />
+                <h2 className="text-sm font-semibold text-slate-900">Subscription</h2>
               </div>
-            )}
-            {message && (
-              <div className="text-sm text-green-600 bg-green-50 border border-green-200 rounded-md px-3 py-2">
-                {message}
+              <div className="flex items-center gap-2 mb-3">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                  Free
+                </span>
+                <span className="text-xs text-slate-400">Limited searches & exports</span>
               </div>
-            )}
+              <div className="bg-indigo-50/70 border border-indigo-100 rounded-lg p-3">
+                <h3 className="font-semibold text-indigo-900 text-xs">Power User</h3>
+                <p className="text-[11px] text-indigo-600/80 mt-0.5">
+                  Unlimited searches, full data, CSV exports, priority support.
+                </p>
+                <button
+                  disabled
+                  className="mt-2 px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-md opacity-50 cursor-not-allowed"
+                >
+                  Coming soon
+                </button>
+              </div>
+            </CardContent>
+          </Card>
 
-            <Button
-              type="submit"
-              className="bg-indigo-600 hover:bg-indigo-700"
-              disabled={saving}
-            >
-              {saving ? "Updating..." : "Update password"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+          {/* Appearance */}
+          <Card className="bg-white">
+            <CardContent className="pt-5 pb-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Palette className="w-4 h-4 text-slate-400" />
+                <h2 className="text-sm font-semibold text-slate-900">Appearance</h2>
+              </div>
+              <FontSwitcher />
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right column */}
+        <div>
+          {/* Security */}
+          <Card className="bg-white">
+            <CardContent className="pt-5 pb-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Lock className="w-4 h-4 text-slate-400" />
+                <h2 className="text-sm font-semibold text-slate-900">Security</h2>
+              </div>
+              <form onSubmit={handleChangePassword} className="space-y-3">
+                <div>
+                  <Label htmlFor="new-password" className="text-xs">New password</Label>
+                  <Input
+                    id="new-password"
+                    type="password"
+                    placeholder="Min 6 characters"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="confirm-password" className="text-xs">Confirm password</Label>
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    className="mt-1"
+                  />
+                </div>
+
+                {error && (
+                  <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+                    {error}
+                  </div>
+                )}
+                {message && (
+                  <div className="text-xs text-green-600 bg-green-50 border border-green-200 rounded-md px-3 py-2">
+                    {message}
+                  </div>
+                )}
+
+                <Button
+                  type="submit"
+                  size="sm"
+                  className="bg-indigo-600 hover:bg-indigo-700"
+                  disabled={saving}
+                >
+                  {saving ? "Updating..." : "Update password"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }

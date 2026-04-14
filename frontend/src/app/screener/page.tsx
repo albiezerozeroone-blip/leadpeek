@@ -28,6 +28,8 @@ import {
   Save,
   FolderOpen,
   Trash2,
+  SlidersHorizontal,
+  X,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -329,6 +331,7 @@ export default function ScreenerPage() {
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [presetName, setPresetName] = useState("");
   const [showPresetMenu, setShowPresetMenu] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => { setPresets(loadPresets()); }, []);
 
@@ -502,9 +505,31 @@ export default function ScreenerPage() {
   }, [filters]);
 
   return (
-    <div className="flex h-[calc(100vh-64px)] overflow-hidden">
+    <div className="flex h-[calc(100vh-64px)] overflow-hidden relative">
+      {/* Mobile filter toggle */}
+      <button
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        className="md:hidden fixed bottom-4 right-4 z-40 bg-indigo-600 text-white rounded-full p-3 shadow-lg hover:bg-indigo-700 transition-colors"
+      >
+        {sidebarOpen ? <X className="w-5 h-5" /> : <SlidersHorizontal className="w-5 h-5" />}
+        {!sidebarOpen && activeFilterCount > 0 && (
+          <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+            {activeFilterCount}
+          </span>
+        )}
+      </button>
+
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div className="md:hidden fixed inset-0 bg-black/20 z-30" onClick={() => setSidebarOpen(false)} />
+      )}
+
       {/* ================= LEFT SIDEBAR ================= */}
-      <aside className="w-60 shrink-0 border-r border-slate-200 bg-slate-50/70 overflow-y-auto">
+      <aside className={`w-60 shrink-0 border-r border-slate-200 bg-slate-50/70 overflow-y-auto
+        fixed md:static inset-y-0 left-0 z-30 transition-transform md:translate-x-0
+        ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
+        md:block
+      `}>
         <div className="p-3 space-y-3">
           {/* Sidebar header */}
           <div className="flex items-center justify-between">
