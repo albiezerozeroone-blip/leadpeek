@@ -7,6 +7,7 @@ import AdBanner from "@/components/ad-banner";
 import BrandSurvey from "@/components/brand-survey";
 import CookieBanner from "@/components/cookie-banner";
 import FontProvider from "@/components/font-provider";
+import CopyProtection from "@/components/copy-protection";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -26,8 +27,9 @@ export default function RootLayout({
     <html lang="en" className={`${inter.variable} ${dmSans.variable} ${geist.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col bg-slate-50 font-sans">
         <FontProvider />
+        <CopyProtection />
         <Nav />
-        <main className="flex-1">
+        <main className="flex-1" data-protected>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             {children}
           </div>

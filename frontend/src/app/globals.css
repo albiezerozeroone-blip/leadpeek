@@ -129,3 +129,10 @@
     font-size: 14px;
   }
 }
+
+/* Copy protection: prevent selection on financial data tables */
+[data-protected] table,
+[data-protected] .font-mono {
+  -webkit-user-select: none;
+  user-select: none;
+}
