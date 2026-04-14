@@ -54,6 +54,12 @@ class ActivityLogMiddleware(BaseHTTPMiddleware):
                     payload = _decode_token(auth[7:])
                     email = payload.get("email", "unknown")
                     from db import execute
+                    # Auto-register user in user_roles (first login)
+                    execute(
+                        "INSERT INTO user_roles (email, role) VALUES (%s, 'user') ON CONFLICT (email) DO NOTHING",
+                        (email,),
+                    )
+                    # Log activity
                     execute(
                         "INSERT INTO activity_log (user_email, endpoint, method) VALUES (%s, %s, %s)",
                         (email, path, request.method),
