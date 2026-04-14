@@ -192,12 +192,12 @@ const PUB_TYPE_MAP: Record<string, { label: string; color: string; summary: stri
   },
   "ONTBINDING": {
     label: "Dissolution",
-    color: "bg-red-100 text-red-700",
+    color: "bg-rose-50 text-rose-500",
     summary: "Dissolution",
   },
   "VEREFFENING": {
     label: "Liquidation",
-    color: "bg-red-100 text-red-700",
+    color: "bg-rose-50 text-rose-500",
     summary: "Liquidation",
   },
   "FUSIE": {
@@ -499,7 +499,7 @@ export default function CompanyDetailPage(props: {
                 : marginVal >= 5
                   ? "text-amber-600"
                   : marginVal < 0
-                    ? "text-red-600"
+                    ? "text-rose-400"
                     : "text-slate-900";
 
           return (
@@ -578,7 +578,7 @@ export default function CompanyDetailPage(props: {
             function changeArrow(change: { pct: number; direction: "up" | "down" | "flat" } | null, goodIfUp = true) {
               if (!change) return null;
               const isGood = (change.direction === "up" && goodIfUp) || (change.direction === "down" && !goodIfUp);
-              const color = change.direction === "flat" ? "text-slate-400" : isGood ? "text-emerald-500" : "text-red-500";
+              const color = change.direction === "flat" ? "text-slate-400" : isGood ? "text-emerald-500" : "text-rose-400";
               const arrow = change.direction === "up" ? "\u2191" : change.direction === "down" ? "\u2193" : "\u2192";
               return (
                 <span className={`text-xs font-medium ${color}`}>
@@ -600,7 +600,7 @@ export default function CompanyDetailPage(props: {
               if (v == null) return "text-slate-900";
               if (v >= 15) return "text-emerald-600";
               if (v >= 5) return "text-amber-600";
-              if (v < 0) return "text-red-600";
+              if (v < 0) return "text-rose-400";
               return "text-slate-900";
             }
 
@@ -610,17 +610,17 @@ export default function CompanyDetailPage(props: {
               if (type === "leverage") {
                 if (value < 3) return "bg-emerald-50 text-emerald-700 border-emerald-100";
                 if (value <= 5) return "bg-amber-50 text-amber-700 border-amber-100";
-                return "bg-red-50 text-red-700 border-red-100";
+                return "bg-rose-50 text-rose-500 border-rose-100";
               }
               if (type === "margin") {
                 if (value >= 15) return "bg-emerald-50 text-emerald-700 border-emerald-100";
                 if (value >= 5) return "bg-amber-50 text-amber-700 border-amber-100";
-                return "bg-red-50 text-red-700 border-red-100";
+                return "bg-rose-50 text-rose-500 border-rose-100";
               }
               // growth
               if (value > 2) return "bg-emerald-50 text-emerald-700 border-emerald-100";
               if (value >= -2) return "bg-slate-50 text-slate-500 border-slate-100";
-              return "bg-red-50 text-red-700 border-red-100";
+              return "bg-rose-50 text-rose-500 border-rose-100";
             }
 
             const revenueYoy = yoyChange(latest?.revenue ?? null, prev?.revenue ?? null);
@@ -943,7 +943,7 @@ export default function CompanyDetailPage(props: {
                             <td className="px-3 py-2 text-right font-mono text-slate-700">{fmtEur(r.revenue)}</td>
                             <td className="px-3 py-2 text-right font-mono text-slate-700">{fmtEur(r.ebitda)}</td>
                             <td className={`px-3 py-2 text-right font-mono ${marginColorClass(r.ebitda_margin_pct)}`}>{fmtPct(r.ebitda_margin_pct)}</td>
-                            <td className={`px-3 py-2 text-right font-mono ${(r.net_profit ?? 0) < 0 ? "text-red-600" : "text-slate-700"}`}>{fmtEur(r.net_profit)}</td>
+                            <td className={`px-3 py-2 text-right font-mono ${(r.net_profit ?? 0) < 0 ? "text-rose-400" : "text-slate-700"}`}>{fmtEur(r.net_profit)}</td>
                             <td className="px-3 py-2 text-right font-mono text-slate-700">{r.fte_total != null ? fmtNumber(r.fte_total) : "—"}</td>
                           </tr>
                         ))}
@@ -1039,7 +1039,7 @@ export default function CompanyDetailPage(props: {
                 </div>
               )}
               {nbbResult === "error" && (
-                <div className="mt-3 flex items-center justify-center gap-1.5 text-xs text-red-500">
+                <div className="mt-3 flex items-center justify-center gap-1.5 text-xs text-rose-400">
                   <XCircle className="w-4 h-4" />
                   Failed to load data. The company may not have filings available.
                 </div>
@@ -1082,14 +1082,19 @@ export default function CompanyDetailPage(props: {
                 };
               });
 
-              // Helper: format accounting cell (costs in parentheses + red)
-              const fmtAcct = (v: number | null, isCost = false) => {
+              // Helper: format accounting cell
+              // isCost: show in parentheses but normal color (costs are expected to be negative)
+              // isKeyMetric: show rose only if negative (EBITDA, EBIT, Net Profit)
+              const fmtAcct = (v: number | null, isCost = false, isKeyMetric = false) => {
                 if (v == null) return <span className="text-slate-300">{"\u2014"}</span>;
                 if (isCost && v < 0) {
-                  return <span className="text-red-600">({fmtEur(Math.abs(v))})</span>;
+                  return <span className="text-slate-500">({fmtEur(Math.abs(v))})</span>;
+                }
+                if (isKeyMetric && v < 0) {
+                  return <span className="text-rose-400">({fmtEur(Math.abs(v))})</span>;
                 }
                 if (v < 0) {
-                  return <span className="text-red-600">({fmtEur(Math.abs(v))})</span>;
+                  return <span className="text-slate-500">({fmtEur(Math.abs(v))})</span>;
                 }
                 return <>{fmtEur(v)}</>;
               };
@@ -1098,6 +1103,7 @@ export default function CompanyDetailPage(props: {
                 label: string;
                 key: keyof (typeof pnlData)[0];
                 isCost?: boolean;
+                isKeyMetric?: boolean;
                 bold?: boolean;
                 topBorder?: boolean;
                 doubleBorder?: boolean;
@@ -1113,12 +1119,12 @@ export default function CompanyDetailPage(props: {
                 { label: "Personnel Costs", key: "personnel", isCost: true, section: "OPERATING COSTS", indent: true },
                 { label: "Depreciation & Amortization", key: "da", isCost: true, indent: true },
                 { label: "Other Operating Costs", key: "otherOpCosts", isCost: true, indent: true },
-                { label: "EBIT (Operating Profit)", key: "ebit", bold: true, topBorder: true },
+                { label: "EBIT (Operating Profit)", key: "ebit", bold: true, topBorder: true, isKeyMetric: true },
                 { label: "Financial Charges", key: "finCharges", isCost: true, section: "FINANCIAL", indent: true },
-                { label: "Profit Before Tax", key: "pbt", bold: true, topBorder: true },
+                { label: "Profit Before Tax", key: "pbt", bold: true, topBorder: true, isKeyMetric: true },
                 { label: "Tax", key: "tax", isCost: true, indent: true },
-                { label: "Net Profit", key: "netProfit", bold: true, doubleBorder: true },
-                { label: "EBITDA", key: "ebitda", bold: true, section: "EBITDA", topBorder: true },
+                { label: "Net Profit", key: "netProfit", bold: true, doubleBorder: true, isKeyMetric: true },
+                { label: "EBITDA", key: "ebitda", bold: true, section: "EBITDA", topBorder: true, isKeyMetric: true },
                 { label: "EBITDA Margin", key: "ebitdaMarginPct", isPct: true },
               ];
 
@@ -1162,9 +1168,9 @@ export default function CompanyDetailPage(props: {
                                   <td key={r.fiscal_year} className={`px-3 py-1 text-right text-xs font-mono ${line.bold ? "font-bold" : ""}`}>
                                     {line.isPct
                                       ? (r[line.key] != null
-                                          ? <span className={`${(r[line.key] as number) >= 15 ? "text-emerald-600" : (r[line.key] as number) >= 5 ? "text-amber-600" : "text-red-600"}`}>{(r[line.key] as number).toFixed(1)}%</span>
+                                          ? <span className={`${(r[line.key] as number) >= 15 ? "text-emerald-600" : (r[line.key] as number) >= 5 ? "text-amber-600" : "text-rose-400"}`}>{(r[line.key] as number).toFixed(1)}%</span>
                                           : <span className="text-slate-300">{"\u2014"}</span>)
-                                      : fmtAcct(r[line.key] as number | null, line.isCost)}
+                                      : fmtAcct(r[line.key] as number | null, line.isCost, line.isKeyMetric)}
                                   </td>
                                 ))}
                               </tr>
@@ -1218,7 +1224,7 @@ export default function CompanyDetailPage(props: {
             const fmtCell = (v: number | null) => {
               if (v == null) return <span className="text-slate-300">{"\u2014"}</span>;
               const formatted = fmtEur(v);
-              return v < 0 ? <span className="text-red-600">{formatted}</span> : <>{formatted}</>;
+              return v < 0 ? <span className="text-rose-400">{formatted}</span> : <>{formatted}</>;
             };
 
             const cfRows = sorted.slice(0, -1).map((row, idx) => {
@@ -1368,7 +1374,7 @@ export default function CompanyDetailPage(props: {
             const fmtCell = (v: number | null) => {
               if (v == null) return <span className="text-slate-300">{"\u2014"}</span>;
               const formatted = fmtEur(v);
-              return v < 0 ? <span className="text-red-600">{formatted}</span> : <>{formatted}</>;
+              return v < 0 ? <span className="text-rose-400">{formatted}</span> : <>{formatted}</>;
             };
 
             // Build derived rows per year
@@ -2039,7 +2045,7 @@ export default function CompanyDetailPage(props: {
                         <TableRow className="bg-slate-50/50" title="Equity / Total Assets × 100">
                           <TableCell className="text-xs text-slate-600 py-1 font-medium">Equity Ratio (Equity / Assets)</TableCell>
                           {ratios.map((r) => (
-                            <TableCell key={r.fiscal_year} className={`text-right font-mono text-xs py-1 font-medium ${r.equityRatio != null && r.equityRatio >= 40 ? "text-green-700" : r.equityRatio != null && r.equityRatio >= 20 ? "text-amber-700" : r.equityRatio != null ? "text-red-700" : ""}`}>{fmtRatio(r.equityRatio, "%")}</TableCell>
+                            <TableCell key={r.fiscal_year} className={`text-right font-mono text-xs py-1 font-medium ${r.equityRatio != null && r.equityRatio >= 40 ? "text-green-700" : r.equityRatio != null && r.equityRatio >= 20 ? "text-amber-700" : r.equityRatio != null ? "text-rose-500" : ""}`}>{fmtRatio(r.equityRatio, "%")}</TableCell>
                           ))}
                         </TableRow>
                         <TableRow title="EBIT / |Financial Charges|">
