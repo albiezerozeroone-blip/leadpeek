@@ -773,6 +773,101 @@ export default function CompanyDetailPage(props: {
                   </div>
                 )}
 
+                {/* 5. Financial History Mini Table (last 5 years) */}
+                {sorted.length > 1 && (
+                  <div className="rounded-xl border border-slate-100 bg-white overflow-hidden">
+                    <div className="px-5 pt-4 pb-2">
+                      <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider">Financial History</h3>
+                    </div>
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-t border-slate-50">
+                          <th className="px-5 py-2 text-left text-slate-400 font-medium">Year</th>
+                          <th className="px-3 py-2 text-right text-slate-400 font-medium">Revenue</th>
+                          <th className="px-3 py-2 text-right text-slate-400 font-medium">EBITDA</th>
+                          <th className="px-3 py-2 text-right text-slate-400 font-medium">Margin</th>
+                          <th className="px-3 py-2 text-right text-slate-400 font-medium">Net Profit</th>
+                          <th className="px-3 py-2 text-right text-slate-400 font-medium">FTE</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sorted.slice(0, 5).map((r, i) => (
+                          <tr key={r.fiscal_year} className={i === 0 ? "bg-indigo-50/30 font-medium" : "border-t border-slate-50"}>
+                            <td className="px-5 py-2 font-mono text-slate-700">{r.fiscal_year}</td>
+                            <td className="px-3 py-2 text-right font-mono text-slate-700">{fmtEur(r.revenue)}</td>
+                            <td className="px-3 py-2 text-right font-mono text-slate-700">{fmtEur(r.ebitda)}</td>
+                            <td className={`px-3 py-2 text-right font-mono ${marginColorClass(r.ebitda_margin_pct)}`}>{fmtPct(r.ebitda_margin_pct)}</td>
+                            <td className={`px-3 py-2 text-right font-mono ${(r.net_profit ?? 0) < 0 ? "text-red-600" : "text-slate-700"}`}>{fmtEur(r.net_profit)}</td>
+                            <td className="px-3 py-2 text-right font-mono text-slate-700">{r.fte_total != null ? fmtNumber(r.fte_total) : "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* 6. Key People + Recent Activity side by side */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Top Administrators */}
+                  <div className="rounded-xl border border-slate-100 bg-white p-5">
+                    <div className="flex items-baseline justify-between mb-3">
+                      <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider">Key People</h3>
+                      {currentAdmins.length > 0 && (
+                        <button type="button" onClick={() => setActiveTab("administrators")} className="text-xs text-indigo-500 hover:text-indigo-700 font-medium transition-colors">
+                          View all
+                        </button>
+                      )}
+                    </div>
+                    {currentAdmins.length === 0 ? (
+                      <p className="text-xs text-slate-400">No administrator data available</p>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {currentAdmins.slice(0, 5).map((a, i) => (
+                          <div key={`${a.name}-${i}`} className="flex items-center gap-2">
+                            <div className="h-7 w-7 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-semibold text-slate-500 shrink-0">
+                              {(a.name || "?").slice(0, 2).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-sm text-slate-700 truncate">{a.name}</div>
+                              <div className="text-[10px] text-slate-400">{a.role_label || a.role || "—"}</div>
+                            </div>
+                          </div>
+                        ))}
+                        {currentAdmins.length > 5 && (
+                          <p className="text-[10px] text-slate-400">+ {currentAdmins.length - 5} more</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Recent Publications */}
+                  <div className="rounded-xl border border-slate-100 bg-white p-5">
+                    <div className="flex items-baseline justify-between mb-3">
+                      <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider">Recent Publications</h3>
+                      {(structure?.staatsblad_publications?.length ?? 0) > 0 && (
+                        <button type="button" onClick={() => setActiveTab("publications")} className="text-xs text-indigo-500 hover:text-indigo-700 font-medium transition-colors">
+                          View all
+                        </button>
+                      )}
+                    </div>
+                    {!structure?.staatsblad_publications?.length ? (
+                      <p className="text-xs text-slate-400">No publications available</p>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {structure.staatsblad_publications.slice(0, 4).map((pub, i) => (
+                          <div key={`pub-${i}`} className="flex items-start gap-2">
+                            <div className="text-[10px] font-mono text-slate-400 shrink-0 w-16 pt-0.5">{pub.pub_date}</div>
+                            <div className="text-xs text-slate-600 truncate">{pub.pub_type || "Publication"}</div>
+                          </div>
+                        ))}
+                        {structure.staatsblad_publications.length > 4 && (
+                          <p className="text-[10px] text-slate-400">+ {structure.staatsblad_publications.length - 4} more</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 {/* Quick navigation links */}
                 <div className="flex flex-wrap gap-3 pt-2">
                   {sorted.length > 0 && (
