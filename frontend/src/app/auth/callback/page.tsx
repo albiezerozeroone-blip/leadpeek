@@ -1,53 +1,85 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 
 export default function AuthCallback() {
   const router = useRouter();
+  const [status, setStatus] = useState("Processing login...");
 
   useEffect(() => {
-    const supabase = createClient();
+    async function handleAuth() {
+      const supabase = createClient();
 
-    // The hash fragment contains the auth tokens from Supabase OAuth
-    // Supabase client automatically picks them up from the URL
-    supabase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_IN") {
-        router.push("/");
+      // Check if there's a hash fragment (implicit flow)
+      const hash = window.location.hash;
+      if (hash && hash.includes("access_token")) {
+        setStatus("Found access token, signing in...");
+        // Supabase auto-detects tokens in the hash
+        const { data, error } = await supabase.auth.getSession();
+        if (data?.session) {
+          setStatus("Signed in! Redirecting...");
+          router.push("/");
+          return;
+        }
+        if (error) {
+          setStatus(`Error: ${error.message}`);
+        }
       }
-    });
 
-    // Also try to get the session (handles code exchange for PKCE)
-    const hash = window.location.hash;
-    if (hash) {
-      // Supabase auto-detects tokens in the hash
-      setTimeout(() => router.push("/"), 2000);
-    } else {
-      // Check URL params for code exchange
+      // Check for code parameter (PKCE flow)
       const params = new URLSearchParams(window.location.search);
       const code = params.get("code");
       if (code) {
-        supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
-          if (!error) {
-            router.push("/");
-          } else {
-            console.error("Auth callback error:", error);
-            router.push("/login?error=auth_failed");
-          }
-        });
-      } else {
-        // No code or hash — just redirect
-        router.push("/");
+        setStatus("Exchanging auth code...");
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) {
+          setStatus(`Code exchange error: ${error.message}`);
+          // Wait and retry
+          await new Promise(r => setTimeout(r, 2000));
+          router.push("/login?error=auth_failed");
+          return;
+        }
+        if (data?.session) {
+          setStatus("Signed in! Redirecting...");
+          router.push("/");
+          return;
+        }
       }
+
+      // Check if there's an error in hash
+      if (hash && hash.includes("error")) {
+        const hashParams = new URLSearchParams(hash.substring(1));
+        const error = hashParams.get("error_description") || hashParams.get("error") || "Unknown error";
+        setStatus(`Auth error: ${decodeURIComponent(error)}`);
+        await new Promise(r => setTimeout(r, 3000));
+        router.push("/login?error=auth_failed");
+        return;
+      }
+
+      // No code or hash — check if already signed in
+      const { data } = await supabase.auth.getSession();
+      if (data?.session) {
+        setStatus("Already signed in! Redirecting...");
+        router.push("/");
+        return;
+      }
+
+      // Nothing worked — show debug info
+      setStatus(`No auth data found. URL: ${window.location.href.substring(0, 100)}...`);
+      await new Promise(r => setTimeout(r, 5000));
+      router.push("/login");
     }
+
+    handleAuth();
   }, [router]);
 
   return (
     <div className="flex items-center justify-center min-h-[50vh]">
-      <div className="text-center">
+      <div className="text-center max-w-md">
         <div className="animate-spin h-8 w-8 border-2 border-indigo-600 border-t-transparent rounded-full mx-auto mb-4" />
-        <p className="text-sm text-slate-500">Signing you in...</p>
+        <p className="text-sm text-slate-600">{status}</p>
       </div>
     </div>
   );
