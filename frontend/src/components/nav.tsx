@@ -24,11 +24,10 @@ import type { User as SupabaseUser } from "@supabase/supabase-js";
 const NAV_ITEMS = [
   { label: "Screener", href: "/screener" },
   { label: "Company", href: "/company" },
-  { label: "Compare", href: "/compare" },
-  { label: "Aggregate", href: "/aggregate" },
-  { label: "Stats", href: "/stats" },
   { label: "People", href: "/people" },
   { label: "Favourites", href: "/favourites" },
+  { label: "Compare", href: "/compare" },
+  { label: "Aggregate", href: "/aggregate" },
 ];
 
 export default function Nav() {

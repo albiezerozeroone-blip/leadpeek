@@ -124,6 +124,26 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Data Stats teaser */}
+      <div>
+        <Link href="/stats">
+          <Card className="bg-gradient-to-r from-indigo-50 to-slate-50 border-indigo-100 hover:shadow-md transition-shadow cursor-pointer">
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <BarChart className="h-4 w-4 text-indigo-500" />
+                    <h3 className="text-sm font-semibold text-slate-900">Market Statistics</h3>
+                  </div>
+                  <p className="text-xs text-slate-500">Sector benchmarks, margin distributions, revenue trends, and province breakdowns across 170K+ Belgian companies</p>
+                </div>
+                <span className="text-xs text-indigo-500 font-medium shrink-0 ml-4">Explore →</span>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+      </div>
+
     </div>
   );
 }
