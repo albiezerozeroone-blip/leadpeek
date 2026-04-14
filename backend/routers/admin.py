@@ -152,6 +152,20 @@ class ReplyBody(BaseModel):
     message: str
 
 
+@router.post("/feedback/{feedback_id}/reply")
+async def reply_feedback(feedback_id: int, body: ReplyBody, user=Depends(_require_admin)):
+    """Store a reply to feedback."""
+    try:
+        execute(
+            "UPDATE feedback SET reply = %s, replied_at = NOW() WHERE id = %s",
+            (body.message, feedback_id),
+        )
+        return {"status": "replied"}
+    except Exception as e:
+        logger.exception("Reply failed")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 class RoleUpdate(BaseModel):
     role: str
 
