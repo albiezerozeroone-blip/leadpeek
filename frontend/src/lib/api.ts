@@ -442,3 +442,27 @@ export const getNotifications = () =>
 
 export const markNotificationsRead = () =>
   apiFetch<{ status: string }>("/api/favourites/notifications/mark-read", { method: "POST" });
+
+// ── Sector Benchmark ───────────────────────────────────────
+export interface BenchmarkMetric {
+  metric: string;
+  format: string;
+  value: number | null;
+  percentile: number | null;
+  p25: number | null;
+  median: number | null;
+  p75: number | null;
+  peer_count: number;
+}
+
+export interface SectorBenchmark {
+  nace_code: string;
+  nace_label: string;
+  fiscal_year: number;
+  peer_count: number;
+  benchmarks: BenchmarkMetric[];
+  error?: string;
+}
+
+export const getSectorBenchmark = (cbe: string) =>
+  apiFetch<SectorBenchmark>(`/api/companies/${cbe}/sector-benchmark`);

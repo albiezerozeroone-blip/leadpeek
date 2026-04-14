@@ -30,7 +30,9 @@ import {
   addFavourite,
   removeFavourite,
   loadCompanyNBB,
+  getSectorBenchmark,
 } from "@/lib/api";
+import type { SectorBenchmark } from "@/lib/api";
 import { fmtEur, fmtCbe, fmtPct, fmtNumber } from "@/lib/format";
 import { useRouter } from "next/navigation";
 import {
@@ -315,7 +317,7 @@ function renderDelta(current: number | null, previous: number | null): React.Rea
   const abs = current - previous;
   const pct = (abs / Math.abs(previous)) * 100;
   const sign = abs >= 0 ? "+" : "";
-  const color = abs >= 0 ? "text-emerald-600" : "text-rose-500";
+  const color = abs >= 0 ? "text-emerald-400" : "text-rose-400";
   const arrow = abs >= 0 ? "▲" : "▼";
   return (
     <div className={`${color} leading-tight`}>
@@ -379,6 +381,7 @@ export default function CompanyDetailPage(props: {
   const [detail, setDetail] = useState<CompanyDetail | null>(null);
   const [financials, setFinancials] = useState<FinancialsData | null>(null);
   const [structure, setStructure] = useState<StructureData | null>(null);
+  const [benchmark, setBenchmark] = useState<SectorBenchmark | null>(null);
   const [loading, setLoading] = useState(true);
   const [isFavourite, setIsFavourite] = useState(false);
   const [activeTab, setActiveTab] = useState("summary");
@@ -443,9 +446,13 @@ export default function CompanyDetailPage(props: {
     (value: any) => {
       if (typeof value === "string") {
         setActiveTab(value);
+        // Lazy-load benchmark data on first visit
+        if (value === "sector" && !benchmark) {
+          getSectorBenchmark(cbe).then(setBenchmark).catch(() => {});
+        }
       }
     },
-    []
+    [cbe, benchmark]
   );
 
   if (loading) {
@@ -614,6 +621,9 @@ export default function CompanyDetailPage(props: {
           </TabsTrigger>
           <TabsTrigger value="publications" className="text-[11px] uppercase tracking-wider font-medium px-3 py-2 data-active:text-indigo-600 data-active:after:bg-indigo-600">
             Publications
+          </TabsTrigger>
+          <TabsTrigger value="sector" className="text-[11px] uppercase tracking-wider font-medium px-3 py-2 data-active:text-indigo-600 data-active:after:bg-indigo-600">
+            Sector
           </TabsTrigger>
         </TabsList>
 
@@ -2538,6 +2548,75 @@ export default function CompanyDetailPage(props: {
                   Showing 50 of {structure.staatsblad_publications.length} publications.
                 </p>
               )}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ===== Sector Benchmarking tab (last) ===== */}
+        <TabsContent value="sector" className="mt-3">
+          {!benchmark ? (
+            <div className="py-8 text-center">
+              <Loader2 className="w-6 h-6 animate-spin text-indigo-500 mx-auto mb-2" />
+              <p className="text-sm text-slate-400">Loading sector benchmarks...</p>
+            </div>
+          ) : benchmark.error ? (
+            <p className="py-8 text-center text-sm text-slate-500">
+              {benchmark.error === "no_nace" ? "No NACE code assigned to this company." : "No financial data available for benchmarking."}
+            </p>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 border-l-[3px] border-amber-500 pl-2">
+                  Sector Benchmarking — {benchmark.nace_label}
+                </h3>
+                <span className="text-[10px] text-slate-400">
+                  {benchmark.peer_count.toLocaleString()} peers · FY{benchmark.fiscal_year}
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                {benchmark.benchmarks.map((b) => {
+                  const pct = b.percentile ?? 0;
+                  const color = pct >= 75 ? "text-emerald-600" : pct >= 50 ? "text-indigo-600" : pct >= 25 ? "text-amber-600" : "text-rose-500";
+                  const barColor = pct >= 75 ? "bg-emerald-500" : pct >= 50 ? "bg-indigo-500" : pct >= 25 ? "bg-amber-500" : "bg-rose-400";
+
+                  const fmtVal = (v: number | null) => {
+                    if (v == null) return "\u2014";
+                    if (b.format === "pct") return `${v.toFixed(1)}%`;
+                    if (b.format === "num") return v.toLocaleString("en-GB", { maximumFractionDigits: 0 });
+                    if (Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+                    if (Math.abs(v) >= 1_000) return `${(v / 1_000).toFixed(0)}K`;
+                    return v.toFixed(0);
+                  };
+
+                  return (
+                    <div key={b.metric} className="rounded-lg border bg-white p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-semibold text-slate-700">{b.metric}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-mono text-slate-800">{fmtVal(b.value)}</span>
+                          <span className={`text-xs font-bold ${color}`}>P{pct.toFixed(0)}</span>
+                        </div>
+                      </div>
+                      <div className="relative h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div className={`absolute inset-y-0 left-0 rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
+                        <div className="absolute top-0 bottom-0 left-1/4 w-px bg-slate-300" />
+                        <div className="absolute top-0 bottom-0 left-1/2 w-px bg-slate-400" />
+                        <div className="absolute top-0 bottom-0 left-3/4 w-px bg-slate-300" />
+                      </div>
+                      <div className="flex justify-between mt-1.5 text-[9px] text-slate-400 font-mono">
+                        <span>P25: {fmtVal(b.p25)}</span>
+                        <span>Median: {fmtVal(b.median)}</span>
+                        <span>P75: {fmtVal(b.p75)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <p className="text-[10px] text-slate-400 italic">
+                Percentile rank within NACE {benchmark.nace_code} ({benchmark.peer_count.toLocaleString()} companies with data). P75 = top 25% of sector.
+              </p>
             </div>
           )}
         </TabsContent>

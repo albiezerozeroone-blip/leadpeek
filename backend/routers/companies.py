@@ -960,3 +960,137 @@ async def get_company_network(cbe: str, max_depth: int = Query(1, ge=1, le=3)):
     except Exception as e:
         logger.exception("Company network query failed")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Sector Benchmarking ──────────────────────────────────────────
+
+@router.get("/{cbe}/sector-benchmark")
+async def sector_benchmark(cbe: str):
+    """Return percentile rankings for a company within its NACE sector."""
+    cbe = cbe.strip().replace(".", "").zfill(10)
+
+    try:
+        # Get company's NACE code and latest financials
+        info = fetch_one(
+            "SELECT nace_code FROM company_info WHERE enterprise_number = %s",
+            (cbe,),
+        )
+        if not info or not info.get("nace_code"):
+            return {"error": "no_nace", "benchmarks": []}
+
+        nace = info["nace_code"]
+
+        # Get this company's latest financials
+        company = fetch_one("""
+            SELECT revenue, ebitda, net_profit, equity, total_assets,
+                   fte_total, ebitda_margin_pct,
+                   CASE WHEN revenue > 0 THEN (net_profit / revenue * 100) END AS net_margin_pct,
+                   CASE WHEN total_assets > 0 THEN (equity / total_assets * 100) END AS equity_ratio,
+                   fiscal_year
+            FROM financial_latest
+            WHERE enterprise_number = %s
+        """, (cbe,))
+
+        if not company:
+            return {"error": "no_financials", "benchmarks": []}
+
+        # Get sector stats using PERCENT_RANK for each metric
+        metrics = [
+            ("revenue", "Revenue", "eur"),
+            ("ebitda", "EBITDA", "eur"),
+            ("net_profit", "Net Profit", "eur"),
+            ("ebitda_margin_pct", "EBITDA Margin", "pct"),
+            ("fte_total", "FTE", "num"),
+            ("equity", "Equity", "eur"),
+            ("total_assets", "Total Assets", "eur"),
+        ]
+
+        benchmarks = []
+        sector_count = fetch_one("""
+            SELECT COUNT(*) AS c
+            FROM financial_latest fl
+            JOIN company_info ci ON ci.enterprise_number = fl.enterprise_number
+            WHERE ci.nace_code = %s AND fl.revenue IS NOT NULL
+        """, (nace,))
+        peer_count = sector_count["c"] if sector_count else 0
+
+        for col, label, fmt in metrics:
+            val = company.get(col)
+            if val is None:
+                continue
+
+            # Compute percentile rank
+            row = fetch_one(f"""
+                SELECT
+                    COUNT(*) FILTER (WHERE fl.{col} < %s) AS below,
+                    COUNT(*) FILTER (WHERE fl.{col} IS NOT NULL) AS total,
+                    PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY fl.{col}) AS p25,
+                    PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY fl.{col}) AS median,
+                    PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY fl.{col}) AS p75
+                FROM financial_latest fl
+                JOIN company_info ci ON ci.enterprise_number = fl.enterprise_number
+                WHERE ci.nace_code = %s AND fl.{col} IS NOT NULL
+            """, (val, nace))
+
+            if not row or not row["total"]:
+                continue
+
+            percentile = round((row["below"] / row["total"]) * 100, 1) if row["total"] > 0 else None
+
+            benchmarks.append({
+                "metric": label,
+                "format": fmt,
+                "value": float(val) if val is not None else None,
+                "percentile": percentile,
+                "p25": float(row["p25"]) if row["p25"] is not None else None,
+                "median": float(row["median"]) if row["median"] is not None else None,
+                "p75": float(row["p75"]) if row["p75"] is not None else None,
+                "peer_count": row["total"],
+            })
+
+        # Also compute equity ratio and net margin percentiles
+        for col, label, fmt in [
+            ("CASE WHEN total_assets > 0 THEN equity / total_assets * 100 END", "Equity Ratio", "pct"),
+        ]:
+            val = company.get("equity_ratio")
+            if val is None:
+                continue
+            row = fetch_one(f"""
+                SELECT
+                    COUNT(*) FILTER (WHERE ({col}) < %s) AS below,
+                    COUNT(*) FILTER (WHERE ({col}) IS NOT NULL) AS total,
+                    PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY ({col})) AS p25,
+                    PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY ({col})) AS median,
+                    PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY ({col})) AS p75
+                FROM financial_latest fl
+                JOIN company_info ci ON ci.enterprise_number = fl.enterprise_number
+                WHERE ci.nace_code = %s AND ({col}) IS NOT NULL
+            """, (val, nace))
+            if row and row["total"]:
+                benchmarks.append({
+                    "metric": label,
+                    "format": fmt,
+                    "value": float(val),
+                    "percentile": round((row["below"] / row["total"]) * 100, 1),
+                    "p25": float(row["p25"]) if row["p25"] is not None else None,
+                    "median": float(row["median"]) if row["median"] is not None else None,
+                    "p75": float(row["p75"]) if row["p75"] is not None else None,
+                    "peer_count": row["total"],
+                })
+
+        # Get NACE label
+        nace_label = fetch_one(
+            "SELECT description FROM nace_lookup WHERE nace_code = %s",
+            (nace,),
+        )
+
+        return {
+            "nace_code": nace,
+            "nace_label": nace_label["description"] if nace_label else nace,
+            "fiscal_year": company["fiscal_year"],
+            "peer_count": peer_count,
+            "benchmarks": benchmarks,
+        }
+    except Exception as e:
+        logger.exception("Sector benchmark failed for %s", cbe)
+        raise HTTPException(status_code=500, detail=str(e))
