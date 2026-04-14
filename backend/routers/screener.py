@@ -46,6 +46,7 @@ async def screener(
     fte_min: Optional[float] = Query(None, ge=0),
     fte_max: Optional[float] = Query(None, ge=0),
     margin_min: Optional[float] = Query(None, ge=0),
+    nd_ebitda_max: Optional[float] = Query(None, description="Max Net Debt / EBITDA ratio"),
     sort: str = Query("ebit_desc", description="Sort order"),
     limit: int = Query(100, ge=1, le=1000),
 ):
@@ -92,6 +93,12 @@ async def screener(
         conditions.append("fl.revenue > 0")
         conditions.append("(fl.ebitda / fl.revenue * 100) >= %s")
         params.append(margin_min)
+    if nd_ebitda_max is not None:
+        conditions.append("""
+            fl.ebitda > 0 AND
+            (COALESCE(fl.lt_financial_debt, 0) + COALESCE(fl.st_financial_debt, 0) - COALESCE(fl.cash, 0)) / fl.ebitda <= %s
+        """)
+        params.append(nd_ebitda_max)
 
     where = (" AND " + " AND ".join(conditions)) if conditions else ""
 

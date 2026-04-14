@@ -8,7 +8,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from routers import dashboard, screener, companies, stats, people, favourites, feedback, admin, polls, stripe_pay
+from routers import dashboard, screener, companies, stats, people, favourites, feedback, admin, polls, stripe_pay, staatsblad
 
 load_dotenv()
 
@@ -84,6 +84,7 @@ app.include_router(feedback.router)
 app.include_router(admin.router)
 app.include_router(polls.router)
 app.include_router(stripe_pay.router)
+app.include_router(staatsblad.router)
 
 # ---------------------------------------------------------------------------
 # Health check

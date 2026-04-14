@@ -960,6 +960,7 @@ export default function CompanyDetailPage(props: {
                                 <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-slate-200">
                                   {sh.shareholder_type === "entity" || sh.shareholder_type === "Entity" ? "Entity" : "Individual"}
                                 </Badge>
+                                {sh.fiscal_year && <span className="text-[10px] text-slate-400">Since FY{sh.fiscal_year}</span>}
                               </div>
                             </div>
                             {sh.ownership_pct != null && (
@@ -1015,6 +1016,7 @@ export default function CompanyDetailPage(props: {
                               )}
                               <div className="flex items-center gap-2 text-[10px] text-slate-400">
                                 {sub.country && <span>{sub.country}</span>}
+                                {sub.fiscal_year && <span className="text-[10px] text-slate-400">Since FY{sub.fiscal_year}</span>}
                               </div>
                             </div>
                             {sub.ownership_pct != null && (
@@ -1306,7 +1308,7 @@ export default function CompanyDetailPage(props: {
                       onPrint={() => window.print()}
                     />
                   </div>
-                  <div className="rounded-lg border overflow-x-auto">
+                  <div className="rounded-lg border overflow-x-auto bg-white">
                     <table className="w-full">
                       <thead>
                         <tr className="bg-slate-50 border-b border-slate-200">
@@ -1491,7 +1493,7 @@ export default function CompanyDetailPage(props: {
                 <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500 border-l-[3px] border-cyan-500 pl-2">
                   Derived Cash Flow Statement
                 </h3>
-                <div className="rounded-lg border overflow-x-auto">
+                <div className="rounded-lg border overflow-x-auto bg-white">
                   <table className="w-full">
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-200">
@@ -1676,7 +1678,7 @@ export default function CompanyDetailPage(props: {
                     onPrint={() => window.print()}
                   />
                 </div>
-                <div className="rounded-lg border overflow-x-auto">
+                <div className="rounded-lg border overflow-x-auto bg-white">
                   <table className="w-full">
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-200">
@@ -2229,15 +2231,15 @@ export default function CompanyDetailPage(props: {
                   <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500 border-l-[3px] border-purple-500 pl-2">
                     Key Ratios (FY{latest.fiscal_year})
                   </h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 gap-2">
                     {metricCards.map((m) => (
                       <div
                         key={m.label}
                         title={m.title}
-                        className={`rounded-lg border p-3 text-center cursor-default ${m.colorFn(m.raw)}`}
+                        className={`rounded-lg border p-2 text-center cursor-default ${m.colorFn(m.raw)}`}
                       >
                         <div className="text-[10px] font-medium uppercase tracking-wider opacity-70">{m.label}</div>
-                        <div className="mt-1 text-lg font-bold">{m.value}</div>
+                        <div className="mt-1 text-base font-bold">{m.value}</div>
                       </div>
                     ))}
                   </div>
@@ -2248,7 +2250,7 @@ export default function CompanyDetailPage(props: {
                   <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500 border-l-[3px] border-red-500 pl-2">
                     Leverage
                   </h3>
-                  <div className="rounded-lg border overflow-x-auto">
+                  <div className="rounded-lg border overflow-x-auto bg-white">
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-slate-50">
@@ -2305,7 +2307,7 @@ export default function CompanyDetailPage(props: {
                   <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500 border-l-[3px] border-amber-500 pl-2">
                     Liquidity
                   </h3>
-                  <div className="rounded-lg border overflow-x-auto">
+                  <div className="rounded-lg border overflow-x-auto bg-white">
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-slate-50">
@@ -2346,7 +2348,7 @@ export default function CompanyDetailPage(props: {
                   <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500 border-l-[3px] border-green-500 pl-2">
                     Profitability
                   </h3>
-                  <div className="rounded-lg border overflow-x-auto">
+                  <div className="rounded-lg border overflow-x-auto bg-white">
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-slate-50">
@@ -2379,7 +2381,7 @@ export default function CompanyDetailPage(props: {
                   <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500 border-l-[3px] border-blue-500 pl-2">
                     Working Capital
                   </h3>
-                  <div className="rounded-lg border overflow-x-auto">
+                  <div className="rounded-lg border overflow-x-auto bg-white">
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-slate-50">
@@ -2428,15 +2430,49 @@ export default function CompanyDetailPage(props: {
         <TabsContent value="publications" className="mt-3">
           {!structure ||
           structure.staatsblad_publications.length === 0 ? (
-            <p className="py-8 text-center text-sm text-slate-500">
-              No Staatsblad publications available.
-            </p>
+            <div className="py-8 text-center">
+              <p className="text-sm text-slate-500 mb-4">No Staatsblad publications available.</p>
+              <button
+                onClick={async () => {
+                  setNbbLoading(true);
+                  try {
+                    const res = await fetch(`/api/staatsblad/${cbe}/load`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                    });
+                    const data = await res.json();
+                    if (data.publications_stored > 0) {
+                      // Refetch structure to get new publications
+                      getCompanyStructure(cbe).then((s) =>
+                        setStructure(s as unknown as StructureData)
+                      );
+                    }
+                    setNbbResult(data.publications_stored > 0 ? "success" : "no-data");
+                  } catch {
+                    setNbbResult("error");
+                  } finally {
+                    setNbbLoading(false);
+                  }
+                }}
+                disabled={nbbLoading}
+                className="inline-flex items-center gap-2 px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-300 rounded-lg hover:bg-indigo-50 disabled:opacity-50 transition-colors"
+              >
+                {nbbLoading ? (
+                  <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading publications...</>
+                ) : (
+                  <><Download className="w-3.5 h-3.5" /> Load from Staatsblad</>
+                )}
+              </button>
+              {nbbResult === "no-data" && (
+                <p className="text-xs text-slate-400 mt-2">No publications found for this company.</p>
+              )}
+            </div>
           ) : (
             <div>
               <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500 border-l-[3px] border-slate-400 pl-2">
                 Staatsblad Publications ({structure.staatsblad_publications.length})
               </h3>
-              <div className="rounded-lg border overflow-x-auto">
+              <div className="rounded-lg border overflow-x-auto bg-white">
                 <table className="w-full">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200">

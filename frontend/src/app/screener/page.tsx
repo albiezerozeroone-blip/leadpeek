@@ -24,6 +24,7 @@ import {
   MapPin,
   ChevronUp,
   ChevronDown,
+  TrendingUp,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -57,6 +58,7 @@ interface Filters {
   fte_min: string;
   fte_max: string;
   margin_min: string;
+  nd_ebitda_max: string;
   sort: string;
   limit: string;
 }
@@ -72,6 +74,7 @@ const DEFAULT_FILTERS: Filters = {
   fte_min: "",
   fte_max: "",
   margin_min: "",
+  nd_ebitda_max: "",
   sort: "revenue_desc",
   limit: "100",
 };
@@ -366,6 +369,7 @@ export default function ScreenerPage() {
         if (f.fte_min) params.fte_min = f.fte_min;
         if (f.fte_max) params.fte_max = f.fte_max;
         if (f.margin_min) params.margin_min = f.margin_min;
+        if (f.nd_ebitda_max) params.nd_ebitda_max = f.nd_ebitda_max;
         params.sort = f.sort;
         params.limit = f.limit;
 
@@ -467,6 +471,7 @@ export default function ScreenerPage() {
     if (filters.ebit_min || filters.ebit_max) c++;
     if (filters.fte_min || filters.fte_max) c++;
     if (filters.margin_min) c++;
+    if (filters.nd_ebitda_max) c++;
     return c;
   }, [filters]);
 
@@ -692,6 +697,21 @@ export default function ScreenerPage() {
               placeholder="0"
               value={filters.margin_min}
               onChange={(e) => updateFilter("margin_min", e.target.value)}
+            />
+          </div>
+
+          {/* Net Debt / EBITDA */}
+          <div className="space-y-1 border-t border-slate-200 pt-2">
+            <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
+              <TrendingUp className="w-3 h-3 inline mr-1" />
+              Max Net Debt/EBITDA
+            </Label>
+            <Input
+              className="h-7 text-xs font-mono"
+              type="number"
+              placeholder="e.g. 4"
+              value={filters.nd_ebitda_max}
+              onChange={(e) => updateFilter("nd_ebitda_max", e.target.value)}
             />
           </div>
 
