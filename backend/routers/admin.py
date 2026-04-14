@@ -109,6 +109,25 @@ async def admin_stats(user=Depends(_require_admin)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/financials-by-year")
+async def financials_by_year(user=Depends(_require_admin)):
+    """Breakdown of companies with financials per fiscal year."""
+    try:
+        rows = fetch_all("""
+            SELECT fiscal_year,
+                   COUNT(DISTINCT enterprise_number) AS companies,
+                   COUNT(*) AS filings
+            FROM financial_by_year
+            WHERE fiscal_year >= 2020
+            GROUP BY fiscal_year
+            ORDER BY fiscal_year DESC
+        """)
+        return rows
+    except Exception as e:
+        logger.exception("Financials by year query failed")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/users")
 async def list_users(user=Depends(_require_admin)):
     """List all known users."""

@@ -322,6 +322,7 @@ export default function AdminPanel() {
   const [replyingTo, setReplyingTo] = useState<number | null>(null);
   const [replyText, setReplyText] = useState("");
   const [userView, setUserView] = useState<"all" | "active">("all");
+  const [finByYear, setFinByYear] = useState<{ fiscal_year: number; companies: number; filings: number }[]>([]);
 
   const loadData = useCallback(async () => {
     try {
@@ -329,7 +330,7 @@ export default function AdminPanel() {
       const { data: sessionData } = await supabase.auth.getSession();
       setMyEmail(sessionData.session?.user?.email || "");
 
-      const [s, u, f, a, p] = await Promise.all([
+      const [s, u, f, a, p, fby] = await Promise.all([
         adminFetch<AdminStats>("/api/admin/stats"),
         adminFetch<UserRow[]>("/api/admin/users"),
         adminFetch<FeedbackRow[]>("/api/admin/feedback"),
@@ -337,12 +338,14 @@ export default function AdminPanel() {
           () => [] as ActivitySummary[]
         ),
         adminFetch<Poll[]>("/api/polls").catch(() => [] as Poll[]),
+        adminFetch<{ fiscal_year: number; companies: number; filings: number }[]>("/api/admin/financials-by-year").catch(() => []),
       ]);
       setStats(s);
       setUsers(u);
       setFeedback(f);
       setActivity(a);
       setPolls(p);
+      setFinByYear(fby);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Unknown error";
       setError(message);
@@ -932,6 +935,42 @@ export default function AdminPanel() {
                     </CardContent>
                   </Card>
                 </div>
+              </div>
+            )}
+
+            {/* Financials by Year Breakdown */}
+            {!loading && finByYear.length > 0 && (
+              <div>
+                <SectionHeading icon={BarChart3}>Financials by Year</SectionHeading>
+                <Card className="bg-white">
+                  <CardContent>
+                    <p className="text-xs text-slate-500 mb-3">Companies with financial data per fiscal year — focus on 2024/2025 coverage.</p>
+                    <div className="space-y-2">
+                      {finByYear.map((fy) => {
+                        const isFocus = fy.fiscal_year >= 2024;
+                        return (
+                          <div key={fy.fiscal_year} className={`flex items-center gap-3 ${isFocus ? "bg-indigo-50/50 rounded px-2 py-1 -mx-2" : ""}`}>
+                            <span className={`text-xs font-mono w-10 ${isFocus ? "font-bold text-indigo-700" : "text-slate-500"}`}>
+                              {fy.fiscal_year}
+                            </span>
+                            <div className="flex-1 h-4 bg-slate-100 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full ${isFocus ? "bg-indigo-500" : "bg-slate-300"}`}
+                                style={{ width: `${Math.min(100, (fy.companies / (finByYear[0]?.companies || 1)) * 100)}%` }}
+                              />
+                            </div>
+                            <span className={`text-xs font-mono w-20 text-right ${isFocus ? "font-bold text-indigo-700" : "text-slate-600"}`}>
+                              {fy.companies.toLocaleString()}
+                            </span>
+                            <span className="text-[10px] text-slate-400 w-16 text-right">
+                              {fy.filings.toLocaleString()} filings
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             )}
           </div>
