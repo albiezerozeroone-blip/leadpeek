@@ -349,15 +349,17 @@ export default function AdminPanel() {
 
   /* ---- Computed readiness ---- */
 
-  const TARGET = 170047;
+  // Use full universe of active legal-person enterprises from backend
+  const TARGET = stats?.target_companies || 1941155;
 
   const readiness = useMemo(() => {
     if (!stats) return null;
-    const financials = pct(stats.companies_with_latest_financials, TARGET);
-    const admins = pct(stats.companies_with_admins, TARGET);
-    const publications = pct(stats.companies_with_publications, TARGET);
-    const shareholders = pct(stats.companies_with_shareholders, TARGET);
-    const subsidiaries = pct(stats.companies_with_subsidiaries, TARGET);
+    const t = stats.target_companies || 1941155;
+    const financials = pct(stats.companies_with_latest_financials, t);
+    const admins = pct(stats.companies_with_admins, t);
+    const publications = pct(stats.companies_with_publications, t);
+    const shareholders = pct(stats.companies_with_shareholders, t);
+    const subsidiaries = pct(stats.companies_with_subsidiaries, t);
     const score =
       financials * 0.4 +
       admins * 0.2 +
