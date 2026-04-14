@@ -64,10 +64,15 @@ export default function LoginPage() {
     setLoading(false);
   }
 
-  async function handleOAuth(provider: "google" | "linkedin_oidc" | "azure" | "apple") {
+  async function handleOAuth(provider: "google" | "linkedin_oidc" | "azure") {
     setLoading(true);
     setError(null);
-    const { error } = await supabase.auth.signInWithOAuth({ provider });
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
     if (error) {
       setError(error.message);
       setLoading(false);
