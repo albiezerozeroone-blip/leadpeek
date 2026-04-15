@@ -10,7 +10,7 @@ import requests as http_requests
 from fastapi import APIRouter, HTTPException, Depends
 
 from db import fetch_all, execute
-from auth import get_current_user
+from auth import get_current_user, optional_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/staatsblad", tags=["staatsblad"])
@@ -86,7 +86,7 @@ def _parse_item(html: str, cbe: str):
 
 
 @router.post("/{cbe}/load")
-async def load_publications(cbe: str, user=Depends(get_current_user)):
+async def load_publications(cbe: str, user=Depends(optional_user)):
     """Scrape and store Staatsblad publications for a company."""
     cbe = cbe.strip().replace(".", "").zfill(10)
 

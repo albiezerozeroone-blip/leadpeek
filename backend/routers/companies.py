@@ -9,7 +9,7 @@ import requests as http_requests
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from db import fetch_all, fetch_one, get_connection, put_connection, get_conn
-from auth import get_current_user
+from auth import get_current_user, optional_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/companies", tags=["companies"])
@@ -216,7 +216,7 @@ async def get_company_detail(cbe: str):
 # ---------------------------------------------------------------------------
 
 @router.post("/{cbe}/load")
-async def load_company_data(cbe: str, user=Depends(get_current_user)):
+async def load_company_data(cbe: str, user=Depends(optional_user)):
     """Load financial data from NBB for this company.
 
     1. Fetch filing references
