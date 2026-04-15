@@ -9,6 +9,7 @@ import {
   searchCompanies,
   getCompanyDetail,
   getCompanyFinancials,
+  loadCompanyNBB,
 } from "@/lib/api";
 import type { SearchResult, CompanyDetail, FinancialYear } from "@/lib/api";
 import { fmtEur, fmtCbe, fmtPct, fmtNumber } from "@/lib/format";
@@ -359,10 +360,25 @@ export default function ComparePage() {
           getCompanyDetail(cbe),
           getCompanyFinancials(cbe),
         ]);
-        const latest =
+        let latest =
           finData.summary.length > 0
             ? finData.summary[finData.summary.length - 1]
             : null;
+
+        // Auto-load from NBB if no financials
+        if (!latest) {
+          try {
+            const loadResult = await loadCompanyNBB(cbe);
+            if (loadResult.rubrics_loaded > 0) {
+              const newFin = await getCompanyFinancials(cbe);
+              latest = newFin.summary.length > 0
+                ? newFin.summary[newFin.summary.length - 1]
+                : null;
+            }
+          } catch {
+            // NBB load failed — continue with no data
+          }
+        }
 
         setCompanies((prev) =>
           prev.map((c) =>

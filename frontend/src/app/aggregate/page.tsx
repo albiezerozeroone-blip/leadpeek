@@ -17,6 +17,7 @@ import {
   searchCompanies,
   getCompanyFinancials,
   getFavourites,
+  loadCompanyNBB,
 } from "@/lib/api";
 import type { SearchResult, FinancialYear } from "@/lib/api";
 import { fmtEur, fmtCbe, fmtPct, fmtNumber } from "@/lib/format";
@@ -232,7 +233,20 @@ export default function AggregatePage() {
       setCompanies((prev) => [...prev, entry]);
 
       try {
-        const finData = await getCompanyFinancials(cbe);
+        let finData = await getCompanyFinancials(cbe);
+
+        // Auto-load from NBB if no financials
+        if (!finData.summary || finData.summary.length === 0) {
+          try {
+            const loadResult = await loadCompanyNBB(cbe);
+            if (loadResult.rubrics_loaded > 0) {
+              finData = await getCompanyFinancials(cbe);
+            }
+          } catch {
+            // NBB load failed — continue with no data
+          }
+        }
+
         setCompanies((prev) =>
           prev.map((c) =>
             c.cbe === cbe
