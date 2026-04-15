@@ -242,6 +242,31 @@ export const getCompanyStructure = (cbe: string) =>
 export const getCompanyNetwork = (cbe: string, maxDepth = 2) =>
   apiFetch<CompanyNetwork>(`/api/companies/${cbe}/network?max_depth=${maxDepth}`);
 
+// ── Deep Network (hidden connections through 3rd/4th degree) ──
+export interface DeepNetworkNode {
+  id: string;
+  name: string;
+  type: string;
+  depth: number;
+}
+
+export interface DeepNetworkEdge {
+  source: string;
+  target: string;
+  relationship: string;
+  label: string;
+}
+
+export interface DeepNetworkResponse {
+  nodes: DeepNetworkNode[];
+  edges: DeepNetworkEdge[];
+  truncated: boolean;
+  depth_reached: number;
+}
+
+export const getDeepNetwork = (cbe: string, depth?: number) =>
+  apiFetch<DeepNetworkResponse>(`/api/companies/${cbe}/deep-network${depth ? `?depth=${depth}` : ''}`);
+
 // ── Stats ──────────────────────────────────────────────────
 export interface StatsOverview {
   n_companies: number;

@@ -1245,3 +1245,283 @@ async def get_similar_companies(cbe: str):
     except Exception as e:
         logger.exception("Similar companies failed for %s", cbe)
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+# ---------------------------------------------------------------------------
+# GET /api/companies/{cbe}/deep-network?depth=3
+# ---------------------------------------------------------------------------
+
+MAX_DEEP_NETWORK_NODES = 100
+
+
+@router.get("/{cbe}/deep-network")
+async def get_deep_network(cbe: str, depth: int = Query(3, ge=1, le=4)):
+    """Deep corporate network graph — traverse administrator, shareholder,
+    and participating_interest links up to 4 hops to find hidden connections.
+
+    Uses BFS with batched queries at each depth level.  Nodes are companies
+    and people; edges carry the relationship type and a human-readable label.
+    Total nodes are capped at MAX_DEEP_NETWORK_NODES to prevent explosion.
+    """
+    cbe = cbe.strip().replace(".", "").zfill(10)
+
+    try:
+        # Resolve the starting company name
+        header = fetch_one(
+            "SELECT denomination AS name FROM denomination "
+            "WHERE entity_number = %s AND type_of_denomination = '001' LIMIT 1",
+            (cbe,),
+        )
+        if not header:
+            raise HTTPException(status_code=404, detail=f"Company {cbe} not found")
+
+        nodes: list[dict] = []
+        edges: list[dict] = []
+        node_ids: set[str] = set()
+        truncated = False
+
+        def _add_node(nid: str, name: str, ntype: str, d: int) -> bool:
+            """Add a node if not already present. Returns True if added."""
+            nonlocal truncated
+            if nid in node_ids:
+                return False
+            if len(nodes) >= MAX_DEEP_NETWORK_NODES:
+                truncated = True
+                return False
+            node_ids.add(nid)
+            nodes.append({"id": nid, "name": name, "type": ntype, "depth": d})
+            return True
+
+        def _add_edge(src: str, tgt: str, rel: str, label: str):
+            """Add an edge (duplicates possible between same pair via different rels)."""
+            edges.append({
+                "source": src, "target": tgt,
+                "relationship": rel, "label": label,
+            })
+
+        # Seed node
+        _add_node(cbe, header["name"], "company", 0)
+
+        # BFS frontier — set of CBE numbers to expand at the next depth
+        frontier: set[str] = {cbe}
+
+        for current_depth in range(1, depth + 1):
+            if not frontier or len(nodes) >= MAX_DEEP_NETWORK_NODES:
+                break
+
+            batch = list(sorted(frontier))
+            frontier = set()
+
+            # ── Fetch all relationships for the current batch ──────────
+            ph = ",".join(["%s"] * len(batch))
+
+            # 1. Administrators OF these companies
+            admin_rows = fetch_all(
+                f"SELECT DISTINCT enterprise_number, name, role, person_type, identifier "
+                f"FROM administrator WHERE enterprise_number IN ({ph})",
+                batch,
+            )
+
+            # 2. Companies where these entities serve as administrator (reverse)
+            admin_reverse_rows = fetch_all(
+                f"SELECT DISTINCT enterprise_number, name, role, person_type, identifier "
+                f"FROM administrator WHERE identifier IN ({ph})",
+                batch,
+            )
+
+            # 3. Shareholders OF these companies
+            sh_rows = fetch_all(
+                f"SELECT DISTINCT enterprise_number, name, identifier, ownership_pct, shareholder_type "
+                f"FROM shareholder WHERE enterprise_number IN ({ph})",
+                batch,
+            )
+
+            # 4. Companies where these entities are shareholders (reverse)
+            sh_reverse_rows = fetch_all(
+                f"SELECT DISTINCT enterprise_number, name, identifier, ownership_pct, shareholder_type "
+                f"FROM shareholder WHERE identifier IN ({ph})",
+                batch,
+            )
+
+            # 5. Participating interests (subsidiaries) OF these companies
+            pi_rows = fetch_all(
+                f"SELECT DISTINCT enterprise_number, name, identifier, ownership_pct, country "
+                f"FROM participating_interest WHERE enterprise_number IN ({ph})",
+                batch,
+            )
+
+            # 6. Companies that hold participating interests IN these entities (parent lookup)
+            pi_reverse_rows = fetch_all(
+                f"SELECT DISTINCT enterprise_number, name, identifier, ownership_pct, country "
+                f"FROM participating_interest WHERE identifier IN ({ph})",
+                batch,
+            )
+
+            # Collect all new CBE numbers we discover so we can batch-resolve names
+            new_cbes: set[str] = set()
+
+            def _collect_cbe(identifier) -> str | None:
+                c = _clean_cbe(identifier)
+                if c and c not in node_ids:
+                    new_cbes.add(c)
+                return c
+
+            # Scan all rows for new CBEs before adding nodes
+            for row in admin_rows:
+                _collect_cbe(row.get("identifier"))
+            for row in admin_reverse_rows:
+                _collect_cbe(row.get("enterprise_number"))
+            for row in sh_rows:
+                _collect_cbe(row.get("identifier"))
+            for row in sh_reverse_rows:
+                _collect_cbe(row.get("enterprise_number"))
+            for row in pi_rows:
+                _collect_cbe(row.get("identifier"))
+            for row in pi_reverse_rows:
+                _collect_cbe(row.get("enterprise_number"))
+
+            # Batch-resolve names for all new CBEs
+            name_map = _fetch_entity_names(list(sorted(new_cbes))) if new_cbes else {}
+
+            # ── Process administrators (forward: company -> admin) ──────
+            seen_admin = set()
+            for row in admin_rows:
+                ent = row["enterprise_number"]
+                aname = row.get("name") or "Unknown"
+                role_key = row.get("role") or ""
+                is_legal = row.get("person_type") == "legal"
+                cbe_id = _clean_cbe(row.get("identifier"))
+                nid = cbe_id if cbe_id else f"person:{aname}"
+                ntype = "company" if is_legal and cbe_id else "person"
+                edge_key = (nid, ent, "administrator", role_key)
+                if edge_key in seen_admin:
+                    continue
+                seen_admin.add(edge_key)
+
+                label_name = name_map.get(cbe_id, aname) if cbe_id else aname
+                role_label = ROLE_LABELS.get(role_key, role_key or "Administrator")
+                added = _add_node(nid, label_name, ntype, current_depth)
+                _add_edge(nid, ent, "administrator", role_label)
+
+                if cbe_id and added:
+                    frontier.add(cbe_id)
+
+            # ── Process administrators (reverse: admin -> other companies) ──
+            seen_admin_rev = set()
+            for row in admin_reverse_rows:
+                target_ent = row["enterprise_number"]
+                identifier = row.get("identifier")
+                cbe_id = _clean_cbe(identifier)
+                if not cbe_id or cbe_id not in node_ids:
+                    continue  # only expand from known nodes
+                role_key = row.get("role") or ""
+                edge_key = (cbe_id, target_ent, "administrator_reverse", role_key)
+                if edge_key in seen_admin_rev:
+                    continue
+                seen_admin_rev.add(edge_key)
+
+                target_name = name_map.get(target_ent, row.get("name") or target_ent)
+                role_label = ROLE_LABELS.get(role_key, role_key or "Administrator")
+                added = _add_node(target_ent, target_name, "company", current_depth)
+                _add_edge(cbe_id, target_ent, "administrator", role_label)
+                if added:
+                    frontier.add(target_ent)
+
+            # ── Process shareholders (forward: company -> shareholder) ──
+            seen_sh = set()
+            for row in sh_rows:
+                ent = row["enterprise_number"]
+                sname = row.get("name") or "Unknown"
+                cbe_id = _clean_cbe(row.get("identifier"))
+                pct = row.get("ownership_pct")
+                is_indiv = row.get("shareholder_type") == "individual"
+                nid = cbe_id if cbe_id else f"person:{sname}"
+                ntype = "company" if cbe_id else "person"
+                edge_key = (nid, ent, "shareholder")
+                if edge_key in seen_sh:
+                    continue
+                seen_sh.add(edge_key)
+
+                label_name = name_map.get(cbe_id, sname) if cbe_id else sname
+                pct_label = f"{pct:.0f}%" if pct else ""
+                added = _add_node(nid, label_name, ntype, current_depth)
+                _add_edge(nid, ent, "shareholder", pct_label)
+                if cbe_id and added:
+                    frontier.add(cbe_id)
+
+            # ── Process shareholders (reverse: entity holds shares elsewhere) ──
+            seen_sh_rev = set()
+            for row in sh_reverse_rows:
+                target_ent = row["enterprise_number"]
+                cbe_id = _clean_cbe(row.get("identifier"))
+                if not cbe_id or cbe_id not in node_ids:
+                    continue
+                pct = row.get("ownership_pct")
+                edge_key = (cbe_id, target_ent, "shareholder_reverse")
+                if edge_key in seen_sh_rev:
+                    continue
+                seen_sh_rev.add(edge_key)
+
+                target_name = name_map.get(target_ent, row.get("name") or target_ent)
+                pct_label = f"{pct:.0f}%" if pct else ""
+                added = _add_node(target_ent, target_name, "company", current_depth)
+                _add_edge(cbe_id, target_ent, "shareholder", pct_label)
+                if added:
+                    frontier.add(target_ent)
+
+            # ── Process participating interests (forward: company -> subsidiary) ──
+            seen_pi = set()
+            for row in pi_rows:
+                ent = row["enterprise_number"]
+                pname = row.get("name") or "Unknown"
+                cbe_id = _clean_cbe(row.get("identifier"))
+                pct = row.get("ownership_pct")
+                nid = cbe_id if cbe_id else f"sub:{pname}"
+                ntype = "company" if cbe_id else "subsidiary"
+                edge_key = (ent, nid, "participating_interest")
+                if edge_key in seen_pi:
+                    continue
+                seen_pi.add(edge_key)
+
+                label_name = name_map.get(cbe_id, pname) if cbe_id else pname
+                pct_label = f"{pct:.0f}%" if pct else ""
+                added = _add_node(nid, label_name, ntype, current_depth)
+                _add_edge(ent, nid, "participating_interest", pct_label)
+                if cbe_id and added:
+                    frontier.add(cbe_id)
+
+            # ── Process participating interests (reverse: parent companies) ──
+            seen_pi_rev = set()
+            for row in pi_reverse_rows:
+                parent_ent = row["enterprise_number"]
+                cbe_id = _clean_cbe(row.get("identifier"))
+                if not cbe_id or cbe_id not in node_ids:
+                    continue
+                pct = row.get("ownership_pct")
+                edge_key = (parent_ent, cbe_id, "participating_interest_reverse")
+                if edge_key in seen_pi_rev:
+                    continue
+                seen_pi_rev.add(edge_key)
+
+                parent_name = name_map.get(parent_ent, row.get("name") or parent_ent)
+                pct_label = f"{pct:.0f}%" if pct else ""
+                added = _add_node(parent_ent, parent_name, "company", current_depth)
+                _add_edge(parent_ent, cbe_id, "participating_interest", pct_label)
+                if added:
+                    frontier.add(parent_ent)
+
+            # Only expand CBEs that were actually added as nodes
+            frontier = {c for c in frontier if c in node_ids} - set(batch)
+
+        return {
+            "nodes": nodes,
+            "edges": edges,
+            "truncated": truncated,
+            "depth_reached": min(depth, max((n["depth"] for n in nodes), default=0)),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Deep network query failed for %s", cbe)
+        raise HTTPException(status_code=500, detail="Internal server error")
