@@ -1,55 +1,65 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120" width="400" height="120">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 120" width="420" height="120">
   <defs>
-    <linearGradient id="grad3a" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#7c3aed;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#a78bfa;stop-opacity:1" />
+    <linearGradient id="g3a" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0d9488"/>
+      <stop offset="100%" stop-color="#2dd4bf"/>
     </linearGradient>
-    <linearGradient id="grad3sweep" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" style="stop-color:#7c3aed;stop-opacity:0.3" />
-      <stop offset="100%" style="stop-color:#7c3aed;stop-opacity:0" />
+    <linearGradient id="g3b" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f766e"/>
+      <stop offset="100%" stop-color="#14b8a6"/>
     </linearGradient>
   </defs>
 
-  <!-- Radar circles -->
-  <circle cx="48" cy="52" r="36" fill="none" stroke="#7c3aed" stroke-width="1" opacity="0.15"/>
-  <circle cx="48" cy="52" r="26" fill="none" stroke="#7c3aed" stroke-width="1" opacity="0.25"/>
-  <circle cx="48" cy="52" r="16" fill="none" stroke="#7c3aed" stroke-width="1.2" opacity="0.35"/>
-  <circle cx="48" cy="52" r="6" fill="url(#grad3a)" opacity="0.5"/>
+  <!-- Bar chart that eyes are peeking over -->
+  <rect x="8" y="56" width="16" height="30" rx="3" fill="#99f6e4"/>
+  <rect x="28" y="46" width="16" height="40" rx="3" fill="#5eead4"/>
+  <rect x="48" y="36" width="16" height="50" rx="3" fill="url(#g3a)"/>
+  <rect x="68" y="42" width="16" height="44" rx="3" fill="#5eead4"/>
 
-  <!-- Crosshair lines -->
-  <line x1="48" y1="16" x2="48" y2="88" stroke="#7c3aed" stroke-width="0.7" opacity="0.2"/>
-  <line x1="12" y1="52" x2="84" y2="52" stroke="#7c3aed" stroke-width="0.7" opacity="0.2"/>
+  <!-- Left hand gripping the chart bar -->
+  <ellipse cx="22" cy="44" rx="6" ry="4" fill="#fde68a"/>
+  <circle cx="18" cy="42" r="2.3" fill="#fbbf24"/>
+  <circle cx="22" cy="41" r="2.3" fill="#fbbf24"/>
+  <circle cx="26" cy="42" r="2.3" fill="#fbbf24"/>
 
-  <!-- Radar sweep -->
-  <path d="M48,52 L48,16 A36,36 0 0,1 79,34 Z" fill="url(#grad3sweep)" opacity="0.5"/>
+  <!-- Right hand gripping the chart bar -->
+  <ellipse cx="62" cy="34" rx="6" ry="4" fill="#fde68a"/>
+  <circle cx="58" cy="32" r="2.3" fill="#fbbf24"/>
+  <circle cx="62" cy="31" r="2.3" fill="#fbbf24"/>
+  <circle cx="66" cy="32" r="2.3" fill="#fbbf24"/>
 
-  <!-- Sweep line -->
-  <line x1="48" y1="52" x2="79" y2="34" stroke="url(#grad3a)" stroke-width="2" stroke-linecap="round"/>
+  <!-- Peeking eyes (between the bars, above the shorter ones) -->
+  <!-- Left eye -->
+  <circle cx="32" cy="34" r="8" fill="white"/>
+  <circle cx="34" cy="34" r="5" fill="#1e293b"/>
+  <circle cx="35.5" cy="33" r="2" fill="white"/>
+  <!-- Eyelid top -->
+  <path d="M24 30 Q32 24 40 30" fill="#fde68a" stroke="#fbbf24" stroke-width="0.5"/>
 
-  <!-- Detected blips -->
-  <circle cx="58" cy="38" r="3" fill="#7c3aed" opacity="0.8">
-    <animate attributeName="opacity" values="0.8;0.3;0.8" dur="2s" repeatCount="indefinite"/>
-  </circle>
-  <circle cx="36" cy="62" r="2.5" fill="#a78bfa" opacity="0.6">
-    <animate attributeName="opacity" values="0.6;0.2;0.6" dur="2.5s" repeatCount="indefinite"/>
-  </circle>
-  <circle cx="66" cy="56" r="2" fill="#7c3aed" opacity="0.5">
-    <animate attributeName="opacity" values="0.5;0.15;0.5" dur="3s" repeatCount="indefinite"/>
-  </circle>
-  <circle cx="40" cy="36" r="2" fill="#a78bfa" opacity="0.45">
-    <animate attributeName="opacity" values="0.45;0.1;0.45" dur="2.2s" repeatCount="indefinite"/>
-  </circle>
+  <!-- Right eye -->
+  <circle cx="56" cy="24" r="8" fill="white"/>
+  <circle cx="58" cy="24" r="5" fill="#1e293b"/>
+  <circle cx="59.5" cy="23" r="2" fill="white"/>
+  <!-- Eyelid top -->
+  <path d="M48 20 Q56 14 64 20" fill="#fde68a" stroke="#fbbf24" stroke-width="0.5"/>
 
-  <!-- Center dot -->
-  <circle cx="48" cy="52" r="2.5" fill="#7c3aed"/>
+  <!-- Eyebrows - mischievous -->
+  <path d="M24 26 Q32 20 40 25" fill="none" stroke="#92400e" stroke-width="1.8" stroke-linecap="round"/>
+  <path d="M48 15 Q56 9 64 16" fill="none" stroke="#92400e" stroke-width="1.8" stroke-linecap="round"/>
+
+  <!-- Small sweat drop (comic style, caught snooping!) -->
+  <path d="M72 18 Q73 14 74 18 Q73 20 72 18 Z" fill="#7dd3fc" opacity="0.7"/>
+
+  <!-- Trend line going up across the bars -->
+  <path d="M12 72 L34 58 L54 48 L74 52" fill="none" stroke="#0f766e" stroke-width="2" stroke-linecap="round" stroke-dasharray="3 3" opacity="0.5"/>
 
   <!-- Wordmark -->
-  <text x="100" y="72" font-family="'Segoe UI', 'Inter', 'Helvetica Neue', Arial, sans-serif" font-size="48" font-weight="700" letter-spacing="-1" fill="#1e293b">
-    data<tspan fill="url(#grad3a)">snoop</tspan>
+  <text x="100" y="56" font-family="'Baloo 2', 'Nunito', 'Segoe UI', sans-serif" font-size="44" font-weight="800" letter-spacing="-0.5" fill="#1e293b">
+    data<tspan fill="url(#g3b)">snoop</tspan>
   </text>
 
   <!-- Tagline -->
-  <text x="102" y="92" font-family="'Segoe UI', 'Inter', 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="400" letter-spacing="3" fill="#94a3b8">
+  <text x="102" y="78" font-family="'Inter', 'Segoe UI', sans-serif" font-size="12.5" font-weight="500" letter-spacing="2.5" fill="#94a3b8">
     BELGIAN COMPANY INTELLIGENCE
   </text>
 </svg>

@@ -1,36 +1,74 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120" width="400" height="120">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 120" width="420" height="120">
   <defs>
-    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#1a56db;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:1" />
+    <linearGradient id="g1a" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#f97316"/>
     </linearGradient>
-    <linearGradient id="grad1b" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#60a5fa;stop-opacity:1" />
+    <linearGradient id="g1b" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ea580c"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
     </linearGradient>
   </defs>
 
-  <!-- Magnifying glass -->
-  <circle cx="48" cy="48" r="28" fill="none" stroke="url(#grad1)" stroke-width="5"/>
-  <line x1="68" y1="68" x2="86" y2="86" stroke="url(#grad1)" stroke-width="5" stroke-linecap="round"/>
+  <!-- Dog body - round friendly shape -->
+  <ellipse cx="48" cy="62" rx="24" ry="20" fill="url(#g1a)"/>
 
-  <!-- Bar chart inside magnifying glass -->
-  <rect x="33" y="52" width="7" height="14" rx="1" fill="url(#grad1b)" opacity="0.85"/>
-  <rect x="43" y="42" width="7" height="24" rx="1" fill="url(#grad1)" opacity="0.9"/>
-  <rect x="53" y="36" width="7" height="30" rx="1" fill="url(#grad1b)" opacity="0.85"/>
+  <!-- Dog head -->
+  <circle cx="48" cy="38" r="22" fill="url(#g1a)"/>
 
-  <!-- Small data dots on lens rim -->
-  <circle cx="26" cy="30" r="2.5" fill="#3b82f6" opacity="0.6"/>
-  <circle cx="70" cy="30" r="2.5" fill="#1a56db" opacity="0.6"/>
-  <circle cx="26" cy="62" r="2.5" fill="#60a5fa" opacity="0.5"/>
+  <!-- Floppy ear left -->
+  <ellipse cx="28" cy="42" rx="10" ry="16" fill="#ea580c" transform="rotate(-15 28 42)"/>
+
+  <!-- Floppy ear right -->
+  <ellipse cx="68" cy="42" rx="10" ry="16" fill="#ea580c" transform="rotate(15 68 42)"/>
+
+  <!-- Snout -->
+  <ellipse cx="48" cy="46" rx="12" ry="9" fill="#fbbf24"/>
+
+  <!-- Nose - big and round -->
+  <ellipse cx="48" cy="41" rx="5" ry="4" fill="#1e293b"/>
+  <!-- Nose shine -->
+  <ellipse cx="46" cy="39.5" rx="2" ry="1.5" fill="#fff" opacity="0.4"/>
+
+  <!-- Eyes - big and curious -->
+  <circle cx="38" cy="32" r="5.5" fill="white"/>
+  <circle cx="58" cy="32" r="5.5" fill="white"/>
+  <circle cx="40" cy="32" r="3" fill="#1e293b"/>
+  <circle cx="60" cy="32" r="3" fill="#1e293b"/>
+  <!-- Eye sparkle -->
+  <circle cx="41" cy="31" r="1.2" fill="white"/>
+  <circle cx="61" cy="31" r="1.2" fill="white"/>
+
+  <!-- Eyebrows - one raised, curious look -->
+  <path d="M33 26 Q38 23 43 26" fill="none" stroke="#92400e" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M53 24 Q58 21 63 25" fill="none" stroke="#92400e" stroke-width="1.5" stroke-linecap="round"/>
+
+  <!-- Mouth - happy panting -->
+  <path d="M42 49 Q48 54 54 49" fill="none" stroke="#92400e" stroke-width="1.3" stroke-linecap="round"/>
+
+  <!-- Tongue -->
+  <ellipse cx="48" cy="53" rx="3" ry="4" fill="#fb7185"/>
+
+  <!-- Magnifying glass the dog is holding -->
+  <circle cx="78" cy="68" r="13" fill="none" stroke="#64748b" stroke-width="3"/>
+  <circle cx="78" cy="68" r="10" fill="#dbeafe" opacity="0.4"/>
+  <line x1="87" y1="77" x2="94" y2="84" stroke="#64748b" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Paw holding the glass -->
+  <circle cx="68" cy="72" r="5" fill="#fbbf24"/>
+  <circle cx="65" cy="70" r="2" fill="#f59e0b"/>
+  <circle cx="67" cy="68" r="2" fill="#f59e0b"/>
+
+  <!-- Tail wagging -->
+  <path d="M24 62 Q12 48 18 38" fill="none" stroke="#ea580c" stroke-width="4" stroke-linecap="round"/>
 
   <!-- Wordmark -->
-  <text x="100" y="72" font-family="'Segoe UI', 'Inter', 'Helvetica Neue', Arial, sans-serif" font-size="48" font-weight="700" letter-spacing="-1" fill="#1e293b">
-    data<tspan fill="url(#grad1)">snoop</tspan>
+  <text x="112" y="56" font-family="'Baloo 2', 'Nunito', 'Segoe UI', sans-serif" font-size="44" font-weight="800" letter-spacing="-0.5" fill="#1e293b">
+    data<tspan fill="url(#g1b)">snoop</tspan>
   </text>
 
   <!-- Tagline -->
-  <text x="102" y="92" font-family="'Segoe UI', 'Inter', 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="400" letter-spacing="3" fill="#94a3b8" text-transform="uppercase">
+  <text x="114" y="78" font-family="'Inter', 'Segoe UI', sans-serif" font-size="12.5" font-weight="500" letter-spacing="2.5" fill="#94a3b8">
     BELGIAN COMPANY INTELLIGENCE
   </text>
 </svg>
