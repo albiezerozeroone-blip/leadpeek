@@ -375,3 +375,113 @@ async def activity_summary(user=Depends(_require_admin)):
     except Exception as e:
         logger.exception("Activity summary failed")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/usage")
+async def platform_usage(user=Depends(_require_admin)):
+    """Detailed platform usage analytics: daily breakdown, registered vs guest, top pages, top users."""
+    try:
+        import decimal, datetime
+
+        # Daily request counts (last 30 days), split by registered/guest
+        daily = fetch_all("""
+            SELECT
+                created_at::date AS day,
+                COUNT(*) FILTER (WHERE user_email NOT LIKE 'anon:%%') AS registered_requests,
+                COUNT(*) FILTER (WHERE user_email LIKE 'anon:%%') AS guest_requests,
+                COUNT(DISTINCT user_email) FILTER (WHERE user_email NOT LIKE 'anon:%%') AS unique_registered,
+                COUNT(DISTINCT user_email) FILTER (WHERE user_email LIKE 'anon:%%') AS unique_guests
+            FROM activity_log
+            WHERE created_at > NOW() - INTERVAL '30 days'
+            GROUP BY created_at::date
+            ORDER BY day DESC
+        """)
+
+        # Top pages (last 7 days)
+        top_pages = fetch_all("""
+            SELECT
+                CASE
+                    WHEN endpoint LIKE '%%/financials' THEN 'Company Financials'
+                    WHEN endpoint LIKE '%%/structure' THEN 'Company Structure'
+                    WHEN endpoint LIKE '%%/sector-benchmark' THEN 'Sector Benchmark'
+                    WHEN endpoint LIKE '%%/network' THEN 'Company Network'
+                    WHEN endpoint LIKE '/api/companies/search%%' THEN 'Company Search'
+                    WHEN endpoint LIKE '/api/people/search%%' THEN 'People Search'
+                    WHEN endpoint LIKE '/api/screener%%' THEN 'Screener'
+                    WHEN endpoint LIKE '/api/companies/%%/load' THEN 'NBB Data Load'
+                    WHEN endpoint LIKE '/api/staatsblad/%%' THEN 'Publications Load'
+                    WHEN endpoint LIKE '/api/favourites%%' THEN 'Favourites'
+                    WHEN endpoint = '/api/dashboard' THEN 'Homepage'
+                    ELSE endpoint
+                END AS page,
+                COUNT(*) AS requests,
+                COUNT(DISTINCT user_email) AS unique_users
+            FROM activity_log
+            WHERE created_at > NOW() - INTERVAL '7 days'
+            GROUP BY 1
+            ORDER BY requests DESC
+            LIMIT 15
+        """)
+
+        # Top registered users (last 7 days)
+        top_registered = fetch_all("""
+            SELECT user_email, COUNT(*) AS requests,
+                   COUNT(DISTINCT endpoint) AS unique_pages,
+                   MAX(created_at) AS last_seen
+            FROM activity_log
+            WHERE created_at > NOW() - INTERVAL '7 days'
+              AND user_email NOT LIKE 'anon:%%'
+            GROUP BY user_email
+            ORDER BY requests DESC
+            LIMIT 20
+        """)
+
+        # Top guest IPs (last 7 days)
+        top_guests = fetch_all("""
+            SELECT user_email AS ip, COUNT(*) AS requests,
+                   COUNT(DISTINCT endpoint) AS unique_pages,
+                   MAX(created_at) AS last_seen
+            FROM activity_log
+            WHERE created_at > NOW() - INTERVAL '7 days'
+              AND user_email LIKE 'anon:%%'
+            GROUP BY user_email
+            ORDER BY requests DESC
+            LIMIT 20
+        """)
+
+        # Summary totals
+        totals = fetch_one("""
+            SELECT
+                COUNT(*) AS total_requests_30d,
+                COUNT(*) FILTER (WHERE user_email LIKE 'anon:%%') AS guest_requests_30d,
+                COUNT(*) FILTER (WHERE user_email NOT LIKE 'anon:%%') AS registered_requests_30d,
+                COUNT(DISTINCT user_email) FILTER (WHERE user_email NOT LIKE 'anon:%%') AS unique_registered_30d,
+                COUNT(DISTINCT user_email) FILTER (WHERE user_email LIKE 'anon:%%') AS unique_guests_30d
+            FROM activity_log
+            WHERE created_at > NOW() - INTERVAL '30 days'
+        """)
+
+        def serialize(rows):
+            result = []
+            for r in rows:
+                row = {}
+                for k, v in r.items():
+                    if isinstance(v, decimal.Decimal):
+                        row[k] = float(v)
+                    elif isinstance(v, (datetime.date, datetime.datetime)):
+                        row[k] = str(v)
+                    else:
+                        row[k] = v
+                result.append(row)
+            return result
+
+        return {
+            "daily": serialize(daily),
+            "top_pages": serialize(top_pages),
+            "top_registered": serialize(top_registered),
+            "top_guests": serialize(top_guests),
+            "totals": {k: (float(v) if isinstance(v, decimal.Decimal) else v) for k, v in (totals or {}).items()},
+        }
+    except Exception as e:
+        logger.exception("Usage analytics failed")
+        raise HTTPException(status_code=500, detail=str(e))

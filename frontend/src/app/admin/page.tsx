@@ -396,6 +396,13 @@ export default function AdminPanel() {
   const [userView, setUserView] = useState<"all" | "active">("all");
   const [finByYear, setFinByYear] = useState<{ fiscal_year: number; companies: number; filings: number }[]>([]);
   const [insights, setInsights] = useState<Insights | null>(null);
+  const [usageData, setUsageData] = useState<{
+    daily: { day: string; registered_requests: number; guest_requests: number; unique_registered: number; unique_guests: number }[];
+    top_pages: { page: string; requests: number; unique_users: number }[];
+    top_registered: { user_email: string; requests: number; unique_pages: number; last_seen: string }[];
+    top_guests: { ip: string; requests: number; unique_pages: number; last_seen: string }[];
+    totals: { total_requests_30d: number; guest_requests_30d: number; registered_requests_30d: number; unique_registered_30d: number; unique_guests_30d: number };
+  } | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -403,7 +410,7 @@ export default function AdminPanel() {
       const { data: sessionData } = await supabase.auth.getSession();
       setMyEmail(sessionData.session?.user?.email || "");
 
-      const [s, u, f, a, p, fby, alog, ins] = await Promise.all([
+      const [s, u, f, a, p, fby, alog, ins, usage] = await Promise.all([
         adminFetch<AdminStats>("/api/admin/stats"),
         adminFetch<UserRow[]>("/api/admin/users"),
         adminFetch<FeedbackRow[]>("/api/admin/feedback"),
@@ -414,6 +421,7 @@ export default function AdminPanel() {
         adminFetch<{ fiscal_year: number; companies: number; filings: number }[]>("/api/admin/financials-by-year").catch(() => []),
         adminFetch<ActivityEntry[]>("/api/admin/activity").catch(() => [] as ActivityEntry[]),
         adminFetch<Insights>("/api/admin/insights").catch(() => null),
+        adminFetch<typeof usageData>("/api/admin/usage").catch(() => null),
       ]);
       setStats(s);
       setUsers(u);
@@ -423,6 +431,7 @@ export default function AdminPanel() {
       setFinByYear(fby);
       setActivityLog(alog);
       setInsights(ins);
+      setUsageData(usage as typeof usageData);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Unknown error";
       setError(message);
@@ -787,6 +796,10 @@ export default function AdminPanel() {
           <TabsTrigger value="readiness">
             <Gauge className="size-3.5 mr-1.5" />
             Readiness
+          </TabsTrigger>
+          <TabsTrigger value="usage">
+            <Activity className="size-3.5 mr-1.5" />
+            Usage
           </TabsTrigger>
           <TabsTrigger value="users">
             <Users className="size-3.5 mr-1.5" />
@@ -1293,6 +1306,146 @@ export default function AdminPanel() {
                   </CardContent>
                 </Card>
               </div>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* ================================================================
+            TAB: Usage Analytics
+            ================================================================ */}
+        <TabsContent value="usage">
+          <div className="space-y-6 pt-2">
+            <SectionHeading icon={Activity}>Platform Usage — Last 30 Days</SectionHeading>
+
+            {!usageData ? (
+              <Card className="bg-white"><CardContent><p className="py-8 text-center text-sm text-slate-400">Loading usage data...</p></CardContent></Card>
+            ) : (
+              <>
+                {/* Summary KPIs */}
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+                  {[
+                    { label: "Total Requests", value: usageData.totals.total_requests_30d, color: "text-slate-800" },
+                    { label: "Registered Requests", value: usageData.totals.registered_requests_30d, color: "text-indigo-600" },
+                    { label: "Guest Requests", value: usageData.totals.guest_requests_30d, color: "text-orange-500" },
+                    { label: "Unique Registered", value: usageData.totals.unique_registered_30d, color: "text-indigo-600" },
+                    { label: "Unique Guests (IPs)", value: usageData.totals.unique_guests_30d, color: "text-orange-500" },
+                  ].map((kpi) => (
+                    <Card key={kpi.label} className="bg-white">
+                      <CardContent className="p-3 text-center">
+                        <div className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">{kpi.label}</div>
+                        <div className={`text-xl font-bold ${kpi.color}`}>{kpi.value?.toLocaleString() ?? 0}</div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* Daily chart as simple bar */}
+                <Card className="bg-white">
+                  <CardContent className="p-4">
+                    <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                      <BarChart3 className="size-3.5" /> Daily Requests (last 30 days)
+                    </h3>
+                    <div className="space-y-1">
+                      {usageData.daily.slice(0, 14).map((d) => {
+                        const total = d.registered_requests + d.guest_requests;
+                        const maxTotal = Math.max(...usageData.daily.map(x => x.registered_requests + x.guest_requests), 1);
+                        const regPct = total > 0 ? (d.registered_requests / maxTotal) * 100 : 0;
+                        const guestPct = total > 0 ? (d.guest_requests / maxTotal) * 100 : 0;
+                        return (
+                          <div key={d.day} className="flex items-center gap-2">
+                            <span className="text-[10px] text-slate-400 font-mono w-20 shrink-0">{d.day.slice(5)}</span>
+                            <div className="flex-1 flex h-4 rounded overflow-hidden bg-slate-50">
+                              <div className="bg-indigo-400 rounded-l" style={{ width: `${regPct}%` }} title={`${d.registered_requests} registered`} />
+                              <div className="bg-orange-300" style={{ width: `${guestPct}%` }} title={`${d.guest_requests} guest`} />
+                            </div>
+                            <span className="text-[10px] text-slate-500 font-mono w-12 text-right">{total}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="flex items-center gap-4 mt-3 text-[10px] text-slate-400">
+                      <span className="flex items-center gap-1"><span className="inline-block w-3 h-2 rounded bg-indigo-400" /> Registered</span>
+                      <span className="flex items-center gap-1"><span className="inline-block w-3 h-2 rounded bg-orange-300" /> Guest</span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Two columns: Top Pages + Top Users */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {/* Top Pages */}
+                  <Card className="bg-white">
+                    <CardContent className="p-4">
+                      <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                        <Globe className="size-3.5" /> Most Used Features (7d)
+                      </h3>
+                      <div className="space-y-1.5">
+                        {usageData.top_pages.map((p, i) => {
+                          const maxReq = usageData.top_pages[0]?.requests || 1;
+                          return (
+                            <div key={i} className="flex items-center gap-2">
+                              <span className="text-xs text-slate-600 truncate flex-1">{p.page}</span>
+                              <div className="w-24 h-3 bg-slate-50 rounded overflow-hidden">
+                                <div className="h-full bg-indigo-200 rounded" style={{ width: `${(p.requests / maxReq) * 100}%` }} />
+                              </div>
+                              <span className="text-[10px] text-slate-400 font-mono w-10 text-right">{p.requests}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Top Registered Users */}
+                  <Card className="bg-white">
+                    <CardContent className="p-4">
+                      <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                        <Users className="size-3.5" /> Top Registered Users (7d)
+                      </h3>
+                      <div className="space-y-1.5">
+                        {usageData.top_registered.map((u, i) => (
+                          <div key={i} className="flex items-center justify-between py-1 border-b border-slate-50 last:border-0">
+                            <span className="text-xs text-indigo-600 font-medium truncate">{u.user_email}</span>
+                            <div className="flex items-center gap-3 text-[10px] text-slate-400 shrink-0">
+                              <span>{u.unique_pages} pages</span>
+                              <span className="font-mono font-semibold text-slate-600">{u.requests} req</span>
+                            </div>
+                          </div>
+                        ))}
+                        {usageData.top_registered.length === 0 && <p className="text-xs text-slate-400 py-2 text-center">No registered activity</p>}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Guest Visitors */}
+                <Card className="bg-white">
+                  <CardContent className="p-4">
+                    <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                      <Globe className="size-3.5 text-orange-500" /> Guest Visitors (7d)
+                    </h3>
+                    {usageData.top_guests.length === 0 ? (
+                      <p className="text-xs text-slate-400 py-4 text-center">No guest traffic recorded yet. Guest tracking started this session — check back tomorrow.</p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {usageData.top_guests.map((g, i) => (
+                          <div key={i} className="flex items-center justify-between py-1 border-b border-slate-50 last:border-0">
+                            <span className="inline-flex items-center gap-1.5">
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-orange-50 text-orange-600 text-[9px] font-semibold">
+                                <Globe className="size-2.5" /> {g.ip.replace("anon:", "")}
+                              </span>
+                            </span>
+                            <div className="flex items-center gap-3 text-[10px] text-slate-400 shrink-0">
+                              <span>{g.unique_pages} pages</span>
+                              <span className="font-mono font-semibold text-slate-600">{g.requests} req</span>
+                              <span>{g.last_seen?.slice(0, 16).replace("T", " ")}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </>
             )}
           </div>
         </TabsContent>
