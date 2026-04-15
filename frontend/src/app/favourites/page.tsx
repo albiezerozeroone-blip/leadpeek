@@ -289,7 +289,9 @@ function parseCbeFromFile(file: File): Promise<string[]> {
           // Take the first column (comma or semicolon or tab separated)
           const cell = line.split(/[,;\t]/)[0].trim();
           // Strip dots, spaces, quotes
-          const cleaned = cell.replace(/[."' ]/g, "");
+          let cleaned = cell.replace(/[."' ]/g, "");
+          // Strip BE/be prefix (common in Belgian business docs)
+          cleaned = cleaned.replace(/^[Bb][Ee]/i, "");
           // Skip header-like rows and empty values
           if (!cleaned || /^[a-zA-Z]/.test(cleaned)) continue;
           // Pad to 10 digits
@@ -346,6 +348,7 @@ function CsTab({
     const cbes = raw
       .split(/[\n,;\s]+/)
       .map((s) => s.replace(/\./g, "").replace(/\s/g, "").trim())
+      .map((s) => s.replace(/^[Bb][Ee]/i, ""))  // strip BE/be prefix
       .filter((s) => /^\d{9,10}$/.test(s))
       .map((s) => s.padStart(10, "0"));
     const unique = [...new Set(cbes)];

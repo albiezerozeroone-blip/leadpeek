@@ -460,20 +460,29 @@ def _list_cs(user_id: str, list_type: str):
     """Shared query for listing customers or suppliers with financials."""
     _ensure_cs_tables_once()
     rows = fetch_all("""
-        SELECT cs.enterprise_number, cs.custom_name, cs.notes, cs.added_at,
-               COALESCE(ci.name, d.denomination) AS "name",
-               ci.city,
-               fl.revenue, fl.ebitda, fl.fte_total,
-               CASE WHEN fl.revenue > 0
-                    THEN ROUND((fl.ebitda / fl.revenue * 100)::numeric, 1)
-               END AS "margin_pct"
-        FROM customer_supplier_list cs
-        LEFT JOIN company_info ci ON ci.enterprise_number = cs.enterprise_number
-        LEFT JOIN denomination d ON d.entity_number = cs.enterprise_number
-             AND d.type_of_denomination = '001' AND d.language IN ('2','1')
-        LEFT JOIN financial_latest fl ON fl.enterprise_number = cs.enterprise_number
-        WHERE cs.user_id = %s AND cs.list_type = %s
-        ORDER BY cs.added_at DESC
+        SELECT * FROM (
+            SELECT DISTINCT ON (cs.enterprise_number)
+                   cs.enterprise_number, cs.custom_name, cs.notes, cs.added_at,
+                   COALESCE(ci.name, d.denomination) AS "name",
+                   ci.city,
+                   fl.revenue, fl.ebitda, fl.fte_total,
+                   CASE WHEN fl.revenue > 0
+                        THEN ROUND((fl.ebitda / fl.revenue * 100)::numeric, 1)
+                   END AS "margin_pct"
+            FROM customer_supplier_list cs
+            LEFT JOIN company_info ci ON ci.enterprise_number = cs.enterprise_number
+            LEFT JOIN LATERAL (
+                SELECT denomination FROM denomination
+                WHERE entity_number = cs.enterprise_number
+                  AND type_of_denomination = '001'
+                ORDER BY CASE language WHEN '2' THEN 1 WHEN '1' THEN 2 ELSE 3 END
+                LIMIT 1
+            ) d ON true
+            LEFT JOIN financial_latest fl ON fl.enterprise_number = cs.enterprise_number
+            WHERE cs.user_id = %s AND cs.list_type = %s
+            ORDER BY cs.enterprise_number
+        ) sub
+        ORDER BY added_at DESC
     """, (user_id, list_type))
     return [_serialize_row(r) for r in rows]
 
@@ -489,7 +498,7 @@ def _upload_cs(user_id: str, list_type: str, enterprise_numbers: List[str]):
             cleaned.append(cbe)
 
     if not cleaned:
-        return {"matched": 0, "not_found": 0, "total": 0, "items": []}
+        return {"matched": 0, "not_found": 0, "total": 0, "not_found_cbes": []}
 
     # Deduplicate
     cleaned = list(dict.fromkeys(cleaned))
