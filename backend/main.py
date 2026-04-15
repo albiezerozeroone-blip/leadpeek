@@ -24,6 +24,9 @@ app = FastAPI(
     title="Data Peak API",
     description="Belgian company intelligence — KBO registry + NBB annual accounts",
     version="0.1.0",
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
 )
 
 # ---------------------------------------------------------------------------
