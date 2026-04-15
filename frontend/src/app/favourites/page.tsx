@@ -316,6 +316,7 @@ function CsTab({
   items,
   loading,
   uploading,
+  onUploadCbes,
   uploadResult,
   removing,
   onUpload,
@@ -329,12 +330,30 @@ function CsTab({
   uploadResult: CsUploadResult | null;
   removing: string | null;
   onUpload: (file: File) => void;
+  onUploadCbes?: (cbes: string[]) => void;
   onRemove: (cbe: string) => void;
   onClearResult: () => void;
 }) {
   const [dragOver, setDragOver] = useState(false);
+  const [textInput, setTextInput] = useState("");
+  const [inputMode, setInputMode] = useState<"file" | "text">("file");
   const label = listType === "customer" ? "Customers" : "Suppliers";
   const Icon = listType === "customer" ? Building2 : Truck;
+
+  function handleTextSubmit() {
+    const raw = textInput.trim();
+    if (!raw) return;
+    const cbes = raw
+      .split(/[\n,;\s]+/)
+      .map((s) => s.replace(/\./g, "").replace(/\s/g, "").trim())
+      .filter((s) => /^\d{9,10}$/.test(s))
+      .map((s) => s.padStart(10, "0"));
+    const unique = [...new Set(cbes)];
+    if (unique.length > 0 && onUploadCbes) {
+      onUploadCbes(unique);
+      setTextInput("");
+    }
+  }
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
@@ -351,46 +370,83 @@ function CsTab({
 
   return (
     <div className="space-y-4">
-      {/* Upload zone */}
-      <div
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={handleDrop}
-        className={`relative flex flex-col items-center justify-center rounded-lg border-2 border-dashed py-8 px-4 transition-colors ${
-          dragOver
-            ? "border-indigo-400 bg-indigo-50"
-            : "border-slate-200 bg-slate-50/50 hover:border-slate-300"
-        }`}
-      >
-        {uploading ? (
-          <div className="flex items-center gap-2">
-            <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
-            <span className="text-sm text-slate-600">Processing file...</span>
-          </div>
-        ) : (
-          <>
-            <FileSpreadsheet className="h-8 w-8 text-slate-300 mb-2" />
-            <p className="text-sm font-medium text-slate-600">
-              Drag & drop an Excel or CSV file
-            </p>
-            <p className="text-xs text-slate-400 mt-1 mb-3">
-              First column should contain CBE numbers (0xxx.xxx.xxx or 0xxxxxxxxx)
-            </p>
-            <label>
-              <input
-                type="file"
-                accept=".csv,.xlsx,.xls,.tsv,.txt"
-                onChange={handleFileInput}
-                className="hidden"
-              />
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-md cursor-pointer transition-colors">
-                <Upload className="h-3.5 w-3.5" />
-                Browse files
-              </span>
-            </label>
-          </>
-        )}
+      {/* Input mode toggle */}
+      <div className="flex gap-1 mb-2">
+        <button
+          onClick={() => setInputMode("text")}
+          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${inputMode === "text" ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+        >
+          Paste CBE numbers
+        </button>
+        <button
+          onClick={() => setInputMode("file")}
+          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${inputMode === "file" ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+        >
+          Upload file
+        </button>
       </div>
+
+      {inputMode === "text" ? (
+        /* Text input zone */
+        <div className="space-y-2">
+          <textarea
+            value={textInput}
+            onChange={(e) => setTextInput(e.target.value)}
+            placeholder={"Paste CBE numbers here — one per line, or separated by commas:\n0403.101.811\n0404202677\n0439 819 279"}
+            className="w-full h-28 px-3 py-2 text-xs font-mono border border-slate-200 rounded-lg bg-white resize-none focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 placeholder:text-slate-300"
+            disabled={uploading}
+          />
+          <button
+            onClick={handleTextSubmit}
+            disabled={uploading || !textInput.trim()}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+            {uploading ? "Processing..." : "Match companies"}
+          </button>
+        </div>
+      ) : (
+        /* File upload zone */
+        <div
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={handleDrop}
+          className={`relative flex flex-col items-center justify-center rounded-lg border-2 border-dashed py-8 px-4 transition-colors ${
+            dragOver
+              ? "border-indigo-400 bg-indigo-50"
+              : "border-slate-200 bg-slate-50/50 hover:border-slate-300"
+          }`}
+        >
+          {uploading ? (
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
+              <span className="text-sm text-slate-600">Processing file...</span>
+            </div>
+          ) : (
+            <>
+              <FileSpreadsheet className="h-8 w-8 text-slate-300 mb-2" />
+              <p className="text-sm font-medium text-slate-600">
+                Drag & drop an Excel or CSV file
+              </p>
+              <p className="text-xs text-slate-400 mt-1 mb-3">
+                First column should contain CBE numbers
+              </p>
+              <label>
+                <input
+                  type="file"
+                  accept=".csv,.xlsx,.xls,.tsv,.txt"
+                  onChange={handleFileInput}
+                  className="hidden"
+                />
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-md cursor-pointer transition-colors">
+                  <Upload className="h-3.5 w-3.5" />
+                  Browse files
+                </span>
+              </label>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Upload result banner */}
       {uploadResult && (
@@ -703,6 +759,20 @@ export default function FavouritesPage() {
     }
   }
 
+  async function handleCustomerCbes(cbes: string[]) {
+    setUploadingCustomers(true);
+    setCustomerUploadResult(null);
+    try {
+      const result = await uploadCustomers(cbes);
+      setCustomerUploadResult(result);
+      loadCustomers();
+    } catch (err) {
+      console.error("Customer CBE upload failed:", err);
+    } finally {
+      setUploadingCustomers(false);
+    }
+  }
+
   async function handleSupplierUpload(file: File) {
     setUploadingSuppliers(true);
     setSupplierUploadResult(null);
@@ -717,6 +787,20 @@ export default function FavouritesPage() {
       loadSuppliers();
     } catch (err) {
       console.error("Supplier upload failed:", err);
+    } finally {
+      setUploadingSuppliers(false);
+    }
+  }
+
+  async function handleSupplierCbes(cbes: string[]) {
+    setUploadingSuppliers(true);
+    setSupplierUploadResult(null);
+    try {
+      const result = await uploadSuppliers(cbes);
+      setSupplierUploadResult(result);
+      loadSuppliers();
+    } catch (err) {
+      console.error("Supplier CBE upload failed:", err);
     } finally {
       setUploadingSuppliers(false);
     }
@@ -1111,6 +1195,7 @@ export default function FavouritesPage() {
           uploadResult={customerUploadResult}
           removing={removingCustomer}
           onUpload={handleCustomerUpload}
+          onUploadCbes={handleCustomerCbes}
           onRemove={handleRemoveCustomer}
           onClearResult={() => setCustomerUploadResult(null)}
         />
@@ -1126,6 +1211,7 @@ export default function FavouritesPage() {
           uploadResult={supplierUploadResult}
           removing={removingSupplier}
           onUpload={handleSupplierUpload}
+          onUploadCbes={handleSupplierCbes}
           onRemove={handleRemoveSupplier}
           onClearResult={() => setSupplierUploadResult(null)}
         />
