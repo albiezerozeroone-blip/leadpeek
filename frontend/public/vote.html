@@ -28,7 +28,9 @@
     .card.chosen{border-color:#6366f1;box-shadow:0 0 0 3px #c7d2fe}
     .card.voted:not(.chosen){opacity:.5}
     .card.disabled{cursor:default}
-    .card img{width:64px;height:64px;margin:0 auto .4rem;display:block}
+    .card .icon{position:relative;width:80px;height:80px;margin:0 auto .4rem}
+    .card .icon .glass{position:absolute;bottom:0;right:0;width:52px;height:52px;opacity:.85}
+    .card .icon img{position:absolute;top:0;left:0;width:56px;height:56px}
     .card .name{font-size:.78rem;font-weight:600;color:#334155;margin-bottom:.3rem}
     .card .tag{display:none;font-size:.6rem;font-weight:600;color:#4f46e5;background:#eef2ff;padding:1px 8px;border-radius:999px;margin:0 auto}
     .card.chosen .tag{display:inline-block}
@@ -97,7 +99,7 @@
       var cnt=results?(results.votes[d.id]||0):0;
       var cls='card'+(voted?' voted disabled':'')+(chosen?' chosen':'');
       h+='<div class="'+cls+'" '+(voted?'':'onclick="vote(\''+d.id+'\')"')+'>';
-      h+='<img src="'+d.file+'" alt="'+d.name+'">';
+      h+='<div class="icon"><img src="'+d.file+'" alt="'+d.name+'"><svg class="glass" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="22" cy="22" r="19" fill="#f1f5f9" stroke="#94a3b8" stroke-width="3.5"/><line x1="36" y1="36" x2="48" y2="48" stroke="#94a3b8" stroke-width="4" stroke-linecap="round"/><path d="M13 16 Q16 12 21 14" stroke="white" stroke-width="1.8" stroke-linecap="round" opacity=".5"/></svg></div>';
       h+='<div class="name">'+d.name+'</div>';
       if(chosen) h+='<div class="tag">Your pick</div>';
       if(voted&&results){
