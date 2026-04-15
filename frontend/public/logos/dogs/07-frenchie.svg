@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80">
+  <!-- French Bulldog — bat ears, compact, cheeky -->
+  <circle cx="40" cy="46" r="26" fill="#475569"/>
+  <!-- Bat ears -->
+  <ellipse cx="18" cy="24" rx="10" ry="16" fill="#475569" transform="rotate(-10 18 24)"/>
+  <ellipse cx="62" cy="24" rx="10" ry="16" fill="#475569" transform="rotate(10 62 24)"/>
+  <ellipse cx="19" cy="22" rx="6" ry="10" fill="#fca5a5" opacity="0.3" transform="rotate(-10 19 22)"/>
+  <ellipse cx="61" cy="22" rx="6" ry="10" fill="#fca5a5" opacity="0.3" transform="rotate(10 61 22)"/>
+  <!-- White chest blaze -->
+  <ellipse cx="40" cy="56" rx="14" ry="12" fill="white"/>
+  <!-- Nose -->
+  <ellipse cx="40" cy="48" rx="5.5" ry="3.5" fill="#1e293b"/>
+  <!-- Eyes -->
+  <circle cx="30" cy="40" r="4" fill="white"/>
+  <circle cx="50" cy="40" r="4" fill="white"/>
+  <circle cx="31.5" cy="40.5" r="2.5" fill="#292524"/>
+  <circle cx="51.5" cy="40.5" r="2.5" fill="#292524"/>
+  <circle cx="32.5" cy="39.5" r="1" fill="white"/>
+  <circle cx="52.5" cy="39.5" r="1" fill="white"/>
+  <!-- Smirk -->
+  <path d="M34 54 Q40 58 46 53" fill="none" stroke="#334155" stroke-width="1.5" stroke-linecap="round"/>
+</svg>

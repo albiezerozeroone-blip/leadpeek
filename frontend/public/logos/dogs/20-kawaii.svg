@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80">
+  <!-- Kawaii generic — anime-style, maximum cute -->
+  <circle cx="40" cy="44" r="28" fill="#fbbf24"/>
+  <!-- Soft rounded ears -->
+  <ellipse cx="16" cy="22" rx="12" ry="14" fill="#f59e0b"/>
+  <ellipse cx="64" cy="22" rx="12" ry="14" fill="#f59e0b"/>
+  <ellipse cx="17" cy="22" rx="7" ry="9" fill="#fcd34d" opacity="0.4"/>
+  <ellipse cx="63" cy="22" rx="7" ry="9" fill="#fcd34d" opacity="0.4"/>
+  <!-- Blush -->
+  <circle cx="22" cy="48" r="5" fill="#fca5a5" opacity="0.4"/>
+  <circle cx="58" cy="48" r="5" fill="#fca5a5" opacity="0.4"/>
+  <!-- Huge sparkly eyes -->
+  <circle cx="30" cy="40" r="7" fill="white"/>
+  <circle cx="50" cy="40" r="7" fill="white"/>
+  <circle cx="32" cy="41" r="4.5" fill="#292524"/>
+  <circle cx="52" cy="41" r="4.5" fill="#292524"/>
+  <circle cx="34" cy="39" r="2" fill="white"/>
+  <circle cx="54" cy="39" r="2" fill="white"/>
+  <circle cx="31" cy="42.5" r="1" fill="white"/>
+  <circle cx="51" cy="42.5" r="1" fill="white"/>
+  <!-- Tiny nose -->
+  <ellipse cx="40" cy="48" rx="3" ry="2" fill="#292524"/>
+  <!-- Cat-mouth -->
+  <path d="M37 52 L40 54 L43 52" fill="none" stroke="#292524" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

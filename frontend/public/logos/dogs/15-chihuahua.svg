@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80">
+  <!-- Chihuahua — tiny face, MASSIVE ears, trembling energy -->
+  <circle cx="40" cy="46" r="22" fill="#d4a574"/>
+  <!-- Comically huge ears -->
+  <polygon points="4,36 18,2 28,34" fill="#d4a574"/>
+  <polygon points="76,36 62,2 52,34" fill="#d4a574"/>
+  <polygon points="8,32 18,8 25,32" fill="#fca5a5" opacity="0.35"/>
+  <polygon points="72,32 62,8 55,32" fill="#fca5a5" opacity="0.35"/>
+  <!-- Muzzle -->
+  <ellipse cx="40" cy="52" rx="10" ry="7" fill="#e8c9a0"/>
+  <ellipse cx="40" cy="48" rx="3" ry="2.5" fill="#292524"/>
+  <!-- Huge round eyes -->
+  <circle cx="32" cy="42" r="5.5" fill="white"/>
+  <circle cx="48" cy="42" r="5.5" fill="white"/>
+  <circle cx="34" cy="42.5" r="3.5" fill="#292524"/>
+  <circle cx="50" cy="42.5" r="3.5" fill="#292524"/>
+  <circle cx="35" cy="41.5" r="1.5" fill="white"/>
+  <circle cx="51" cy="41.5" r="1.5" fill="white"/>
+  <path d="M36 56 Q40 58 44 56" fill="none" stroke="#92400e" stroke-width="1" stroke-linecap="round"/>
+</svg>
