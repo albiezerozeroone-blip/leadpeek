@@ -16,6 +16,7 @@ import {
   Building,
   BarChart,
   UserSearch,
+  Sparkles,
 } from "lucide-react";
 
 function Skeleton({ className = "" }: { className?: string }) {
@@ -27,6 +28,15 @@ const KPI_META = [
   { key: "financial_count" as const, label: "Companies with Financials", icon: BarChart3 },
   { key: "filing_count" as const, label: "Filings Loaded", icon: FileText },
   { key: "admin_count" as const, label: "Administrators Indexed", icon: Users },
+];
+
+const WHATS_NEW = [
+  { label: "Unified Search", desc: "Search companies and people in one place", color: "bg-indigo-400" },
+  { label: "Sector Benchmarking", desc: "See how a company ranks within its sector", color: "bg-emerald-400" },
+  { label: "Smart Filters", desc: "Save and load your screener filter presets", color: "bg-amber-400" },
+  { label: "Data Alerts", desc: "Get notified when your favourite companies have new data", color: "bg-rose-400" },
+  { label: "Customer & Supplier Lists", desc: "Upload or paste CBE numbers to build lists", color: "bg-sky-400" },
+  { label: "Full Export", desc: "Download complete company profiles as Excel or PDF", color: "bg-violet-400" },
 ];
 
 const QUICK_ACCESS = [
@@ -132,6 +142,29 @@ export default function Dashboard() {
             );
           })}
         </div>
+      </div>
+
+      {/* What's New */}
+      <div>
+        <Card className="bg-white">
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Sparkles className="h-3.5 w-3.5 text-indigo-500" />
+              <h2 className="text-xs font-bold uppercase tracking-wide text-slate-500">What&apos;s New</h2>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2">
+              {WHATS_NEW.map((item) => (
+                <div key={item.label} className="flex items-start gap-2 py-1">
+                  <span className={`mt-1.5 h-1.5 w-1.5 rounded-full shrink-0 ${item.color}`} />
+                  <div>
+                    <span className="text-xs font-semibold text-slate-700">{item.label}</span>
+                    <span className="text-xs text-slate-400 ml-1">— {item.desc}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Data Stats teaser */}

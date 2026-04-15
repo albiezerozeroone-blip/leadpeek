@@ -32,6 +32,7 @@ import {
   loadCompanyNBB,
   loadPublications,
   getSectorBenchmark,
+  getSimilarCompanies,
   addPeopleFavourite,
 } from "@/lib/api";
 import type { SectorBenchmark } from "@/lib/api";
@@ -411,6 +412,7 @@ export default function CompanyDetailPage(props: {
   const [financials, setFinancials] = useState<FinancialsData | null>(null);
   const [structure, setStructure] = useState<StructureData | null>(null);
   const [benchmark, setBenchmark] = useState<SectorBenchmark | null>(null);
+  const [similarCompanies, setSimilarCompanies] = useState<{ enterprise_number: string; name: string; city: string; revenue: number | null; ebitda: number | null; fte_total: number | null; fiscal_year: number }[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [isFavourite, setIsFavourite] = useState(false);
   const [activeTab, setActiveTab] = useState("summary");
@@ -564,13 +566,18 @@ export default function CompanyDetailPage(props: {
     (value: any) => {
       if (typeof value === "string") {
         setActiveTab(value);
-        // Lazy-load benchmark data on first visit
-        if (value === "sector" && !benchmark) {
-          getSectorBenchmark(cbe).then(setBenchmark).catch(() => {});
+        // Lazy-load benchmark + similar companies on first visit
+        if (value === "sector") {
+          if (!benchmark) {
+            getSectorBenchmark(cbe).then(setBenchmark).catch(() => {});
+          }
+          if (!similarCompanies) {
+            getSimilarCompanies(cbe).then(setSimilarCompanies).catch(() => setSimilarCompanies([]));
+          }
         }
       }
     },
-    [cbe, benchmark]
+    [cbe, benchmark, similarCompanies]
   );
 
   /* ── Full profile export handlers ── */
@@ -3117,6 +3124,46 @@ export default function CompanyDetailPage(props: {
               </div>
             );
           })()}
+
+          {/* ── Similar Companies ── */}
+          {similarCompanies === null ? (
+            <div className="py-6 text-center">
+              <Loader2 className="w-5 h-5 animate-spin text-indigo-400 mx-auto mb-1" />
+              <p className="text-xs text-slate-400">Loading similar companies...</p>
+            </div>
+          ) : similarCompanies.length > 0 ? (
+            <div className="mt-5">
+              <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 border-l-2 border-indigo-600 pl-2 mb-3">Similar Companies</h3>
+              <div className="rounded-xl border border-slate-200 overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-slate-50/80">
+                      <TableHead className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 py-2">Company</TableHead>
+                      <TableHead className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 py-2">City</TableHead>
+                      <TableHead className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 py-2 text-right">Revenue</TableHead>
+                      <TableHead className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 py-2 text-right">EBITDA</TableHead>
+                      <TableHead className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 py-2 text-right">FTE</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {similarCompanies.slice(0, 10).map((sc) => (
+                      <TableRow key={sc.enterprise_number} className="hover:bg-slate-50/50">
+                        <TableCell className="py-2">
+                          <Link href={`/company/${sc.enterprise_number}`} className="text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline">
+                            {sc.name}
+                          </Link>
+                        </TableCell>
+                        <TableCell className="text-xs text-slate-500 py-2">{sc.city || "—"}</TableCell>
+                        <TableCell className="text-xs text-slate-700 font-mono text-right py-2">{sc.revenue != null ? fmtEur(sc.revenue) : "—"}</TableCell>
+                        <TableCell className="text-xs text-slate-700 font-mono text-right py-2">{sc.ebitda != null ? fmtEur(sc.ebitda) : "—"}</TableCell>
+                        <TableCell className="text-xs text-slate-700 font-mono text-right py-2">{sc.fte_total != null ? fmtNumber(sc.fte_total) : "—"}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          ) : null}
         </TabsContent>
       </Tabs>
     </div>
