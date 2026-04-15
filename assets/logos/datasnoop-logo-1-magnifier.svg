@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120" width="400" height="120">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a56db;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="grad1b" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#60a5fa;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Magnifying glass -->
+  <circle cx="48" cy="48" r="28" fill="none" stroke="url(#grad1)" stroke-width="5"/>
+  <line x1="68" y1="68" x2="86" y2="86" stroke="url(#grad1)" stroke-width="5" stroke-linecap="round"/>
+
+  <!-- Bar chart inside magnifying glass -->
+  <rect x="33" y="52" width="7" height="14" rx="1" fill="url(#grad1b)" opacity="0.85"/>
+  <rect x="43" y="42" width="7" height="24" rx="1" fill="url(#grad1)" opacity="0.9"/>
+  <rect x="53" y="36" width="7" height="30" rx="1" fill="url(#grad1b)" opacity="0.85"/>
+
+  <!-- Small data dots on lens rim -->
+  <circle cx="26" cy="30" r="2.5" fill="#3b82f6" opacity="0.6"/>
+  <circle cx="70" cy="30" r="2.5" fill="#1a56db" opacity="0.6"/>
+  <circle cx="26" cy="62" r="2.5" fill="#60a5fa" opacity="0.5"/>
+
+  <!-- Wordmark -->
+  <text x="100" y="72" font-family="'Segoe UI', 'Inter', 'Helvetica Neue', Arial, sans-serif" font-size="48" font-weight="700" letter-spacing="-1" fill="#1e293b">
+    data<tspan fill="url(#grad1)">snoop</tspan>
+  </text>
+
+  <!-- Tagline -->
+  <text x="102" y="92" font-family="'Segoe UI', 'Inter', 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="400" letter-spacing="3" fill="#94a3b8" text-transform="uppercase">
+    BELGIAN COMPANY INTELLIGENCE
+  </text>
+</svg>

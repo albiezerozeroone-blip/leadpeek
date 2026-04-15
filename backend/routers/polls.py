@@ -94,6 +94,32 @@ async def vote(poll_id: int, body: VoteBody, user=Depends(optional_user)):
     return {"status": "voted", "choice": body.choice}
 
 
+@router.get("/{poll_id}/results")
+async def get_poll_results(poll_id: int):
+    """Public: get vote breakdown for a poll."""
+    poll = fetch_one(
+        "SELECT id, title, question, options FROM poll WHERE id = %s",
+        (poll_id,),
+    )
+    if not poll:
+        raise HTTPException(status_code=404, detail="Poll not found")
+
+    poll["options"] = poll["options"] if isinstance(poll["options"], list) else json.loads(poll["options"])
+
+    votes = fetch_all(
+        "SELECT choice, COUNT(*) AS count FROM poll_response WHERE poll_id = %s GROUP BY choice",
+        (poll_id,),
+    )
+    total = sum(v["count"] for v in votes)
+    breakdown = {v["choice"]: v["count"] for v in votes}
+
+    return {
+        **_serialize(poll),
+        "votes": breakdown,
+        "total_votes": total,
+    }
+
+
 # --- Admin endpoints ---
 
 @router.get("")
