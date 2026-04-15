@@ -1682,6 +1682,25 @@ export default function CompanyDetailPage(props: {
 
             let lastSection = "";
 
+            function exportCfCsv() {
+              const headers = ["Line Item", ...cfRows.map(r => `FY${r.fiscal_year}`)];
+              const csvLines = lines.map(line => {
+                const cells = cfRowsDesc.map(r => {
+                  const v = r[line.key];
+                  if (v == null) return "";
+                  return String(v);
+                });
+                return [line.label, ...cells].join(",");
+              });
+              const blob = new Blob([headers.join(",") + "\n" + csvLines.join("\n")], { type: "text/csv" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `${detail?.name || cbe}_cash_flow.csv`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }
+
             return (
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -1695,6 +1714,7 @@ export default function CompanyDetailPage(props: {
                     <button onClick={() => toggleSection("cf_fin")} className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${collapsedSections.cf_fin ? "bg-cyan-50 border-cyan-200 text-cyan-600" : "bg-white border-slate-200 text-slate-500 hover:border-slate-300"}`}>
                       {collapsedSections.cf_fin ? "▸ Financing grouped" : "▾ Financing expanded"}
                     </button>
+                    <ExportButtons onExportCSV={exportCfCsv} onPrint={() => window.print()} />
                   </div>
                 </div>
                 <div className="rounded-lg border overflow-x-auto bg-white">
